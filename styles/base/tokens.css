@@ -1,0 +1,198 @@
+/**
+ * Sistema de diseño · variables de marca
+ * ======================================
+ * ÚNICO archivo donde se declaran colores, tipografías, espaciado y sombras.
+ * Ningún componente contiene un valor literal: todos consumen estas variables.
+ * Cambiar aquí la paleta cambia el catálogo entero.
+ *
+ * Los colores son los oficiales de Equipos Supra S.A.S., muestreados píxel a
+ * píxel de los logotipos incrustados en la lista de precios oficial:
+ *   Naranja Supra   #EC6D26     Negro Supra   #100F0D
+ *   Naranja claro   #FC8637     Rojo Reload   #BF002B
+ *
+ * El tema se resuelve en tres estados: preferencia explícita clara, preferencia
+ * explícita oscura y "según el sistema" (sin atributo), que es el estado por
+ * defecto y el que ve la mayoría de usuarios.
+ */
+
+:root {
+  /* --- Marca ------------------------------------------------------------ */
+  --brand: #EC6D26;
+  --brand-bright: #FC8637;
+  --brand-deep: #B84D16;   /* 5.1:1 sobre blanco · AA para texto pequeño */
+  --brand-contrast: #1A0C04;      /* texto sobre naranja */
+  --brand-wash: #FDF0E7;
+  --reload: #BF002B;
+  --mechanics: #EC6D26;
+
+  /* Las fotografías del PDF vienen recortadas sobre blanco. En lugar de
+     alternar el modo de fusión por tema —que en oscuro dejaría recuadros
+     blancos brillantes—, la foto se presenta SIEMPRE sobre una bandeja clara
+     y se funde con ella mediante multiply. La bandeja se atenúa en modo
+     oscuro lo justo para no deslumbrar, y el resultado se lee como una
+     decisión de diseño (el producto sobre plató) y no como un parche. */
+  --media-plate: #F3EFEB;
+  --image-blend: multiply;
+
+  /* --- Superficies ------------------------------------------------------ */
+  --ground: #F7F4F1;              /* neutros con sesgo cálido hacia el naranja */
+  --surface: #FFFFFF;
+  --surface-2: #F1ECE7;
+  --surface-3: #E7E0D9;
+  --bar: #100F0D;                 /* la barra superior es negra en ambos temas */
+  --bar-ink: #FFFFFF;
+  --bar-ink-dim: #9E958D;
+  --bar-line: #2A2725;
+
+  /* --- Texto ------------------------------------------------------------ */
+  --ink: #17130F;
+  --ink-muted: #6E645B;
+  --ink-faint: #726A63;    /* 4.5:1 mínimo sobre cualquier superficie clara */
+  --ink-on-brand: #FFFFFF;
+  --link: #B4470E;
+
+  /* --- Trazos ----------------------------------------------------------- */
+  --line: #E3DBD3;
+  --line-strong: #CBBFB4;
+
+  /* --- Semánticos ------------------------------------------------------- */
+  --ok: #2F6B4F;
+  --ok-wash: #E9F3ED;
+  --warn: #9A6206;
+  --warn-wash: #FDF3E2;
+  --danger: #BF002B;
+  --danger-wash: #FCECEF;
+
+  /* --- Elevación -------------------------------------------------------- */
+  --shadow-1: 0 1px 2px rgba(23, 19, 15, .06);
+  --shadow-2: 0 1px 2px rgba(23, 19, 15, .06), 0 6px 18px -10px rgba(23, 19, 15, .22);
+  --shadow-3: 0 2px 4px rgba(23, 19, 15, .08), 0 24px 60px -24px rgba(23, 19, 15, .36);
+  --ring: 0 0 0 3px rgba(236, 109, 38, .28);
+
+  /* --- Tipografía ------------------------------------------------------- */
+  --font-display: 'Saira Condensed', 'Arial Narrow', Impact, sans-serif;
+  --font-body: 'Source Sans 3', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --text-xs: 0.6875rem;   /* 11px · etiquetas */
+  --text-sm: 0.8125rem;   /* 13px · metadatos */
+  --text-base: 0.9375rem; /* 15px · cuerpo */
+  --text-md: 1.0625rem;   /* 17px */
+  --text-lg: 1.375rem;    /* 22px */
+  --text-xl: 1.875rem;    /* 30px */
+  --text-2xl: 2.5rem;     /* 40px */
+
+  /* --- Espaciado (escala de 4) ------------------------------------------ */
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.5rem;
+  --s-6: 2rem;
+  --s-7: 3rem;
+  --s-8: 4rem;
+
+  /* --- Geometría -------------------------------------------------------- */
+  --radius-sm: 3px;
+  --radius: 5px;
+  --radius-lg: 8px;
+  --bar-height: 4rem;
+  --toolbar-height: 3.25rem;
+  --sidebar-width: 16.5rem;
+  --content-max: 96rem;
+
+  /* --- Movimiento ------------------------------------------------------- */
+  --ease: cubic-bezier(.2, .7, .3, 1);
+  --fast: 130ms;
+  --normal: 220ms;
+  --slow: 380ms;
+
+  color-scheme: light;
+}
+
+/* Tema oscuro por preferencia del sistema (estado por defecto, sin atributo).
+   Se excluye explícitamente el caso en que el usuario ha elegido claro. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --brand: #FF8038;
+    --brand-bright: #FFA267;
+    --brand-deep: #EC6D26;
+    --brand-contrast: #170B03;
+    --brand-wash: #2A1810;
+    --reload: #F0506F;
+    --media-plate: #DCD6CF;
+
+    --ground: #121110;
+    --surface: #1A1817;
+    --surface-2: #232120;
+    --surface-3: #2C2927;
+    --bar: #0B0A09;
+    --bar-ink: #F5F1ED;
+    --bar-ink-dim: #8A817A;
+    --bar-line: #262321;
+
+    --ink: #F4EFEA;
+    --ink-muted: #ADA298;
+    --ink-faint: #948A81;
+    --link: #FF9052;
+
+    --line: #2E2A27;
+    --line-strong: #453F3A;
+
+    --ok: #6FC79B;
+    --ok-wash: #14251C;
+    --warn: #E0A94A;
+    --warn-wash: #2A2010;
+    --danger: #F0506F;
+    --danger-wash: #2B1218;
+
+    --shadow-1: 0 1px 2px rgba(0, 0, 0, .5);
+    --shadow-2: 0 1px 2px rgba(0, 0, 0, .5), 0 8px 22px -12px rgba(0, 0, 0, .8);
+    --shadow-3: 0 2px 6px rgba(0, 0, 0, .55), 0 28px 70px -28px rgba(0, 0, 0, .9);
+    --ring: 0 0 0 3px rgba(255, 128, 56, .34);
+
+    color-scheme: dark;
+  }
+}
+
+/* Tema oscuro elegido explícitamente: gana también sobre un sistema en claro. */
+:root[data-theme="dark"] {
+  --brand: #FF8038;
+  --brand-bright: #FFA267;
+  --brand-deep: #EC6D26;
+  --brand-contrast: #170B03;
+  --brand-wash: #2A1810;
+  --reload: #F0506F;
+  --media-plate: #DCD6CF;
+
+  --ground: #121110;
+  --surface: #1A1817;
+  --surface-2: #232120;
+  --surface-3: #2C2927;
+  --bar: #0B0A09;
+  --bar-ink: #F5F1ED;
+  --bar-ink-dim: #8A817A;
+  --bar-line: #262321;
+
+  --ink: #F4EFEA;
+  --ink-muted: #ADA298;
+  --ink-faint: #948A81;
+  --link: #FF9052;
+
+  --line: #2E2A27;
+  --line-strong: #453F3A;
+
+  --ok: #6FC79B;
+  --ok-wash: #14251C;
+  --warn: #E0A94A;
+  --warn-wash: #2A2010;
+  --danger: #F0506F;
+  --danger-wash: #2B1218;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .5);
+  --shadow-2: 0 1px 2px rgba(0, 0, 0, .5), 0 8px 22px -12px rgba(0, 0, 0, .8);
+  --shadow-3: 0 2px 6px rgba(0, 0, 0, .55), 0 28px 70px -28px rgba(0, 0, 0, .9);
+  --ring: 0 0 0 3px rgba(255, 128, 56, .34);
+
+  color-scheme: dark;
+}

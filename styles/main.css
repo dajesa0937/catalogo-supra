@@ -1,0 +1,23 @@
+/**
+ * Punto de entrada de estilos del catálogo Equipos Supra S.A.S.
+ *
+ * Un único enlace en el HTML y aquí el orden de la cascada, de lo general a lo
+ * particular. Los hermanos importados se descargan en paralelo, así que la
+ * separación por responsabilidades no cuesta rendimiento.
+ *
+ *   base/        normalización, variables de marca y tipografía
+ *   layout/      armazón: barra superior, lateral y pie
+ *   components/  piezas reutilizables
+ */
+
+@import url('base/reset.css');
+@import url('base/tokens.css');
+@import url('base/typography.css');
+
+@import url('layout/app-shell.css');
+@import url('layout/header.css');
+
+@import url('components/toolbar.css');
+@import url('components/card.css');
+@import url('components/detail.css');
+@import url('components/misc.css');

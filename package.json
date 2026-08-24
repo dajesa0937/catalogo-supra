@@ -1,0 +1,19 @@
+{
+  "name": "catalogo-supra",
+  "version": "1.0.0",
+  "description": "Catálogo web de Equipos Supra S.A.S. generado desde la lista de precios oficial en PDF",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes serve .",
+    "test": "npm run test:parser && npm run test:e2e",
+    "test:parser": "node tests/parser.test.mjs",
+    "test:e2e": "node tests/e2e.test.mjs",
+    "test:shots": "node tests/e2e.test.mjs --screenshots"
+  },
+  "devDependencies": {
+    "pdfjs-dist": "^4.10.38",
+    "playwright": "^1.51.1"
+  },
+  "engines": { "node": ">=18" }
+}

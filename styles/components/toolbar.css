@@ -1,0 +1,222 @@
+/**
+ * Barra de herramientas: contexto de lo que se está viendo (categoría y número
+ * de resultados), conmutador de precio, orden y modo de vista.
+ *
+ * El conmutador de precio está aquí y no escondido en un menú porque es la
+ * decisión que más veces se toma: el distribuidor mira el precio sin IVA y el
+ * vendedor de mostrador el P.V.D, y ambos usan el mismo catálogo.
+ */
+
+.toolbar {
+  position: sticky;
+  top: var(--header-h, var(--bar-height));
+  z-index: 40;
+  background: color-mix(in srgb, var(--ground) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.toolbar__inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  min-height: var(--toolbar-height);
+  padding: var(--s-2) var(--s-5);
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1100px) {
+  .toolbar__inner { padding: var(--s-2) var(--s-4); }
+}
+
+.toolbar__context {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+  min-width: 0;
+  flex: 1;
+}
+
+.toolbar__title {
+  font: 700 var(--text-md)/1.1 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: .015em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toolbar__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: .06em;
+  color: var(--ink-faint);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.toolbar__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+/* --- Conmutador segmentado (precio y vista) ------------------------------ */
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.segmented__option {
+  padding: var(--s-1) var(--s-3);
+  border-radius: 3px;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-muted);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  transition: background var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.segmented__option .icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.segmented__option:hover {
+  color: var(--ink);
+}
+
+.segmented__option[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-1);
+}
+
+/* --- Select de orden ------------------------------------------------------ */
+
+.select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.select select {
+  appearance: none;
+  height: 2rem;
+  padding: 0 2rem 0 var(--s-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.select select:hover {
+  border-color: var(--line-strong);
+}
+
+.select__chevron {
+  position: absolute;
+  right: var(--s-2);
+  width: 0.875rem;
+  height: 0.875rem;
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+
+/* --- Filtro de marca ------------------------------------------------------ */
+
+.brand-filter {
+  display: flex;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+}
+
+.brand-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  height: 2rem;
+  padding: 0 var(--s-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--ink-muted);
+  transition: border-color var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.brand-chip::before {
+  content: "";
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 2px;
+  background: var(--chip-color, var(--brand));
+}
+
+.brand-chip:hover {
+  color: var(--ink);
+  border-color: var(--line-strong);
+}
+
+.brand-chip[aria-pressed="true"] {
+  color: var(--ink);
+  border-color: var(--chip-color, var(--brand));
+  box-shadow: inset 0 0 0 1px var(--chip-color, var(--brand));
+}
+
+.brand-chip__count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Filtros activos ------------------------------------------------------ */
+
+.active-filters {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  padding: var(--s-3) 0 0;
+}
+
+.filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-1) var(--s-2) var(--s-1) var(--s-3);
+  background: var(--brand-wash);
+  border: 1px solid color-mix(in srgb, var(--brand) 35%, transparent);
+  border-radius: 999px;
+  font-size: var(--text-sm);
+  color: var(--ink);
+}
+
+.filter-pill__remove {
+  display: grid;
+  place-items: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 999px;
+  color: var(--ink-muted);
+}
+
+.filter-pill__remove:hover {
+  background: var(--brand);
+  color: var(--brand-contrast);
+}

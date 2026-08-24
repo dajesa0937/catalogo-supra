@@ -1,0 +1,247 @@
+/**
+ * Barra superior. Negra en ambos temas, como la portada de la lista oficial,
+ * con el filete naranja corporativo como única licencia decorativa.
+ *
+ * La búsqueda ocupa el centro y es lo más ancho de la barra: en un mostrador,
+ * buscar por código es la acción número uno y debe estar siempre a un clic.
+ */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: var(--bar);
+  color: var(--bar-ink);
+  border-bottom: 3px solid var(--brand-deep);
+}
+
+.header__inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  min-height: var(--bar-height);
+  padding: 0 var(--s-5);
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+
+@media (max-width: 1100px) {
+  .header__inner { padding: 0 var(--s-4); }
+}
+
+/* --- Identidad ----------------------------------------------------------- */
+
+.header__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex: none;
+  color: inherit;
+  text-decoration: none;
+}
+
+.header__logo {
+  height: 1.85rem;
+  width: auto;
+}
+
+.header__wordmark {
+  display: none;
+  line-height: 1;
+}
+
+.header__wordmark b {
+  display: block;
+  font: 700 0.9375rem/1 var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.header__wordmark span {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--brand);
+  margin-top: 2px;
+}
+
+@media (min-width: 640px) {
+  .header__wordmark { display: block; }
+}
+
+/* --- Buscador ------------------------------------------------------------ */
+
+.search {
+  flex: 1;
+  min-width: 0;
+  max-width: 34rem;
+  margin-inline: auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search__icon {
+  position: absolute;
+  left: var(--s-3);
+  width: 1.0625rem;
+  height: 1.0625rem;
+  color: var(--bar-ink-dim);
+  pointer-events: none;
+}
+
+.search__input {
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 2.5rem 0 2.375rem;
+  background: rgba(255, 255, 255, .07);
+  border: 1px solid var(--bar-line);
+  border-radius: var(--radius);
+  color: var(--bar-ink);
+  font-size: var(--text-base);
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.search__input::placeholder {
+  color: var(--bar-ink-dim);
+}
+
+.search__input:hover {
+  background: rgba(255, 255, 255, .1);
+}
+
+.search__input:focus {
+  outline: none;
+  background: rgba(255, 255, 255, .12);
+  border-color: var(--brand);
+  box-shadow: var(--ring);
+}
+
+.search__clear {
+  position: absolute;
+  right: var(--s-2);
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--radius-sm);
+  color: var(--bar-ink-dim);
+}
+
+.search__clear:hover {
+  color: var(--bar-ink);
+  background: rgba(255, 255, 255, .1);
+}
+
+.search__hint {
+  position: absolute;
+  right: var(--s-3);
+  font-family: var(--font-mono);
+  font-size: 0.625rem;
+  letter-spacing: .08em;
+  color: var(--bar-ink-dim);
+  border: 1px solid var(--bar-line);
+  border-radius: 3px;
+  padding: 1px 5px;
+  pointer-events: none;
+}
+
+@media (max-width: 720px) {
+  .search__hint { display: none; }
+}
+
+/* --- Acciones ------------------------------------------------------------ */
+
+.header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  flex: none;
+}
+
+.header__action {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius);
+  color: var(--bar-ink-dim);
+  transition: color var(--fast) var(--ease), background var(--fast) var(--ease);
+}
+
+.header__action:hover {
+  color: var(--bar-ink);
+  background: rgba(255, 255, 255, .09);
+}
+
+.header__action[aria-pressed="true"] {
+  color: var(--brand);
+  background: rgba(236, 109, 38, .14);
+}
+
+.header__action .icon {
+  width: 1.1875rem;
+  height: 1.1875rem;
+}
+
+.header__badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 3px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--brand);
+  color: var(--brand-contrast);
+  font-family: var(--font-mono);
+  font-size: 0.5625rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.header__menu-toggle {
+  display: none;
+}
+
+@media (max-width: 1100px) {
+  .header__menu-toggle { display: grid; }
+}
+
+/* --- Adaptación a pantallas estrechas -------------------------------------
+ *
+ * Por debajo de 720 px la barra pasa a dos filas y la búsqueda ocupa el ancho
+ * completo. Comprimida junto a los iconos quedaba reducida a la lupa, y buscar
+ * por referencia es justo lo que se hace desde el móvil en un almacén.
+ *
+ * La altura resultante la mide la aplicación y la publica en `--header-h`
+ * (variable DISTINTA de `--bar-height`, que es la altura mínima de diseño), de
+ * modo que la barra de herramientas se pega exactamente debajo sin que la
+ * medición realimente al elemento medido.
+ *
+ * Este bloque va al FINAL del archivo a propósito: tiene la misma
+ * especificidad que las reglas de arriba y debe ganar por orden de cascada.
+ */
+
+@media (max-width: 720px) {
+  .header__inner {
+    flex-wrap: wrap;
+    align-items: center;
+    padding-block: var(--s-3);
+    row-gap: var(--s-3);
+  }
+
+  .search {
+    order: 3;
+    flex: 1 0 100%;
+    max-width: none;
+    margin-inline: 0;
+  }
+
+  .header__actions { margin-left: auto; }
+}

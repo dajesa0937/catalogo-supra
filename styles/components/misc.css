@@ -1,0 +1,297 @@
+/**
+ * Piezas menores compartidas: botones, pantalla de carga, visor de zoom,
+ * estados vacíos, avisos y notificaciones.
+ */
+
+/* --- Botones -------------------------------------------------------------- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s-2);
+  height: 2.375rem;
+  padding: 0 var(--s-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: background var(--fast) var(--ease), border-color var(--fast) var(--ease);
+}
+
+.button .icon { width: 1.0625rem; height: 1.0625rem; }
+
+.button:hover {
+  background: var(--surface-2);
+  border-color: var(--ink-faint);
+}
+
+.button--primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--brand-contrast);
+}
+
+.button--primary:hover {
+  background: var(--brand-bright);
+  border-color: var(--brand-bright);
+}
+
+.button--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--ink-muted);
+}
+
+.button--ghost:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+  border-color: transparent;
+}
+
+.button--on-dark {
+  background: rgba(255, 255, 255, .08);
+  border-color: var(--bar-line);
+  color: var(--bar-ink);
+}
+
+.button--on-dark:hover {
+  background: rgba(255, 255, 255, .14);
+  border-color: rgba(255, 255, 255, .3);
+}
+
+/* --- Pantalla de carga ---------------------------------------------------- */
+
+.loader {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  background: var(--bar);
+  color: var(--bar-ink);
+}
+
+.loader__inner {
+  width: min(26rem, 88vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-4);
+  text-align: center;
+}
+
+.loader__logo {
+  height: 3rem;
+  width: auto;
+  animation: pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .55; }
+}
+
+.loader__phase {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--bar-ink-dim);
+  min-height: 1.2em;
+}
+
+.loader__track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, .12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.loader__fill {
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, var(--brand-deep), var(--brand-bright));
+  border-radius: 999px;
+  transition: width var(--normal) var(--ease);
+}
+
+.loader__note {
+  font-size: var(--text-sm);
+  color: var(--bar-ink-dim);
+  max-width: 30ch;
+  line-height: 1.5;
+}
+
+.loader[data-state="error"] .loader__fill {
+  background: var(--danger);
+  width: 100% !important;
+}
+
+/* --- Visor de zoom -------------------------------------------------------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 95;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 9, 8, .93);
+  cursor: zoom-out;
+  animation: fade-in var(--fast) var(--ease);
+}
+
+.lightbox__image {
+  max-width: 92vw;
+  max-height: 88vh;
+  object-fit: contain;
+  background: #fff;
+  border-radius: var(--radius);
+  transition: transform var(--normal) var(--ease);
+  will-change: transform;
+}
+
+.lightbox__bar {
+  position: absolute;
+  bottom: var(--s-5);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  padding: var(--s-2);
+  background: rgba(255, 255, 255, .08);
+  border: 1px solid rgba(255, 255, 255, .16);
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+  cursor: default;
+}
+
+.lightbox__button {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  color: #fff;
+}
+
+.lightbox__button:hover { background: rgba(255, 255, 255, .16); }
+.lightbox__button .icon { width: 1.125rem; height: 1.125rem; }
+
+.lightbox__level {
+  min-width: 3.5rem;
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Estado vacío --------------------------------------------------------- */
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-8) var(--s-5);
+  text-align: center;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.empty .icon {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--ink-faint);
+}
+
+.empty__title {
+  font: 700 var(--text-lg)/1.1 var(--font-display);
+  text-transform: uppercase;
+}
+
+.empty__text {
+  color: var(--ink-muted);
+  max-width: 42ch;
+}
+
+/* --- Aviso de diagnóstico ------------------------------------------------- */
+
+.notice {
+  display: flex;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: var(--warn-wash);
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  margin-bottom: var(--s-4);
+}
+
+.notice .icon {
+  width: 1.125rem;
+  height: 1.125rem;
+  color: var(--warn);
+  margin-top: 2px;
+}
+
+.notice details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.notice ul {
+  margin: var(--s-2) 0 0;
+  padding-left: var(--s-4);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--ink-muted);
+  line-height: 1.6;
+}
+
+/* --- Notificaciones ------------------------------------------------------- */
+
+.toasts {
+  position: fixed;
+  bottom: var(--s-5);
+  right: var(--s-5);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: var(--bar);
+  color: var(--bar-ink);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-3);
+  font-size: var(--text-sm);
+  border-left: 3px solid var(--brand);
+  animation: toast-in var(--normal) var(--ease);
+  pointer-events: auto;
+}
+
+.toast .icon { width: 1.0625rem; height: 1.0625rem; color: var(--brand); flex: none; }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (max-width: 640px) {
+  .toasts { left: var(--s-4); right: var(--s-4); bottom: var(--s-4); }
+}

@@ -1,0 +1,12 @@
+# Dependencias (solo se usan para las pruebas; el catálogo no necesita ninguna)
+node_modules/
+package-lock.json
+
+# Capturas generadas por la suite de pruebas
+tests/*.png
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

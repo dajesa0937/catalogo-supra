@@ -1,0 +1,113 @@
+/**
+ * Tipografía del catálogo.
+ *
+ * Tres voces con papeles distintos y sin solaparse:
+ *   · Saira Condensed  — títulos, nombres de producto y precios. Es una grotesca
+ *     técnica de caja estrecha, emparentada con la geometría del logotipo Supra,
+ *     y permite nombres largos de maquinaria sin partirlos en cuatro líneas.
+ *   · Source Sans 3    — texto corrido y descripciones. Muy legible a 15 px.
+ *   · IBM Plex Mono    — códigos de producto y valores de ficha técnica, donde
+ *     la alineación de cifras y el aspecto de "referencia" son la información.
+ */
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--ground);
+  font-synthesis-weight: none;
+}
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .01em;
+  line-height: 1.02;
+  text-wrap: balance;
+}
+
+.title-xl { font: 800 var(--text-2xl)/1 var(--font-display); text-transform: uppercase; }
+.title-lg { font: 700 var(--text-xl)/1.05 var(--font-display); text-transform: uppercase; }
+.title-md { font: 700 var(--text-lg)/1.1 var(--font-display); text-transform: uppercase; }
+
+/**
+ * Tamaño por defecto de cualquier icono del sprite. Sin esto, un SVG sin
+ * dimensiones declaradas se expande al 100 % del contenedor y rompe el bloque
+ * donde viva; los componentes lo ajustan cuando necesitan otro tamaño.
+ */
+.icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: none;
+}
+
+/** Etiquetas de sección: monoespaciada, versalitas ópticas y mucho tracking. */
+.label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/** Código de producto. Siempre monoespaciado: es una referencia, no una palabra. */
+.code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+}
+
+/** Cifras que se comparan en columna. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.muted { color: var(--ink-muted); }
+.faint { color: var(--ink-faint); }
+
+/** Truncado a un número fijo de líneas sin romper la retícula de tarjetas. */
+.clamp-2,
+.clamp-3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.clamp-2 { -webkit-line-clamp: 2; line-clamp: 2; }
+.clamp-3 { -webkit-line-clamp: 3; line-clamp: 3; }
+
+/** Accesible para lectores de pantalla, invisible en pantalla. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/** Salto directo al contenido para navegación por teclado. */
+.skip-link {
+  position: absolute;
+  top: var(--s-2);
+  left: var(--s-2);
+  z-index: 100;
+  padding: var(--s-2) var(--s-4);
+  background: var(--brand);
+  color: var(--brand-contrast);
+  font-weight: 700;
+  border-radius: var(--radius);
+  transform: translateY(-200%);
+  transition: transform var(--fast) var(--ease);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}

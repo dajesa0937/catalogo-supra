@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="es-CO">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#100F0D">
+
+  <title>Catálogo · Equipos Supra S.A.S.</title>
+  <meta name="description" content="Catálogo de maquinaria agrícola y equipos de Equipos Supra S.A.S. — bombas de fumigación, desbrozadoras, motosierras, motores, motobombas e hidrolavadoras, con ficha técnica y precios de distribución.">
+  <meta name="author" content="Equipos Supra S.A.S.">
+
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Catálogo · Equipos Supra S.A.S.">
+  <meta property="og:description" content="Maquinaria agrícola profesional. Referencias, fichas técnicas y precios actualizados.">
+  <meta property="og:locale" content="es_CO">
+
+  <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/brand/supra.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+  <link rel="stylesheet" href="styles/main.css">
+
+  <link rel="preload" href="data/lista-precios.pdf" as="fetch" crossorigin>
+</head>
+
+<body>
+  <a class="skip-link" href="#catalog">Saltar al catálogo</a>
+
+  <!-- Pantalla de carga: se retira en cuanto el catálogo está disponible -->
+  <div id="loader" class="loader" role="progressbar" aria-label="Cargando el catálogo"
+       aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div class="loader__inner">
+      <img class="loader__logo" src="assets/brand/supra.png" alt="Equipos Supra S.A.S.">
+      <p class="loader__phase">Preparando el catálogo</p>
+      <div class="loader__track"><div class="loader__fill"></div></div>
+      <p class="loader__note">La primera visita lee la lista de precios oficial en PDF. Las siguientes abren al instante.</p>
+    </div>
+  </div>
+
+  <div class="app">
+
+    <!-- ============================ Barra superior ========================= -->
+    <header class="header">
+      <div class="header__inner">
+        <button id="menu-toggle" class="header__action header__menu-toggle" type="button"
+                aria-label="Abrir las categorías" aria-expanded="false" aria-controls="sidebar">
+          <svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/sprite.svg#icon-menu"></use></svg>
+        </button>
+
+        <a class="header__brand" href="#/" aria-label="Inicio del catálogo de Equipos Supra">
+          <img class="header__logo" src="assets/brand/supra.png" alt="Supra">
+          <span class="header__wordmark">
+            <b>Equipos Supra</b>
+            <span>Catálogo 2026</span>
+          </span>
+        </a>
+
+        <div class="search" role="search">
+          <svg class="icon search__icon" aria-hidden="true" focusable="false"><use href="assets/icons/sprite.svg#icon-search"></use></svg>
+          <label class="sr-only" for="search-input">Buscar por código, nombre o característica</label>
+          <input id="search-input" class="search__input" type="search" autocomplete="off" spellcheck="false"
+                 placeholder="Buscar por código, nombre o característica…">
+          <kbd id="search-hint" class="search__hint">/</kbd>
+          <button id="search-clear" class="search__clear" type="button" aria-label="Limpiar la búsqueda" hidden>
+            <svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/sprite.svg#icon-close"></use></svg>
+          </button>
+        </div>
+
+        <div class="header__actions">
+          <button id="favorites-toggle" class="header__action" type="button" aria-pressed="false" aria-label="Ver mis favoritos">
+            <svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/sprite.svg#icon-heart"></use></svg>
+            <span id="favorites-count" class="header__badge" hidden>0</span>
+          </button>
+          <button id="export-csv" class="header__action" type="button" aria-label="Exportar a CSV para Excel" title="Exportar a CSV">
+            <svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/sprite.svg#icon-list"></use></svg>
+          </button>
+          <button id="export-json" class="header__action" type="button" aria-label="Exportar a JSON" title="Exportar a JSON">
+            <svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/sprite.svg#icon-download"></use></svg>
+          </button>
+          <button id="theme-toggle" class="header__action" type="button" aria-label="Cambiar a modo oscuro">
+            <svg class="icon" aria-hidden="true" focusable="false"><use href="assets/icons/sprite.svg#icon-moon"></use></svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ========================= Barra de herramientas ===================== -->
+    <div class="toolbar">
+      <div class="toolbar__inner">
+        <div class="toolbar__context">
+          <h1 id="toolbar-title" class="toolbar__title">Catálogo completo</h1>
+          <span id="toolbar-count" class="toolbar__count" aria-live="polite">—</span>
+        </div>
+        <div id="toolbar-controls" class="toolbar__controls"></div>
+      </div>
+    </div>
+
+    <!-- ============================== Contenido ============================ -->
+    <div class="app__body">
+      <div id="sidebar-scrim" class="sidebar__scrim" hidden></div>
+
+      <aside id="sidebar" class="sidebar" aria-label="Categorías de producto">
+        <nav id="category-nav" class="sidebar__group"></nav>
+      </aside>
+
+      <main id="main" class="app__main">
+        <div id="active-filters" class="active-filters" hidden></div>
+        <div id="diagnostics"></div>
+        <div id="catalog"></div>
+      </main>
+    </div>
+
+    <!-- ================================= Pie =============================== -->
+    <footer class="footer">
+      <div class="footer__inner">
+        <div class="footer__brand">
+          <img class="footer__logo" src="assets/brand/supra.png" alt="Equipos Supra S.A.S.">
+          <p class="muted">Más que maquinaria, un compromiso con quienes hacen grande el campo.</p>
+        </div>
+
+        <div class="footer__contact">
+          <p class="label">Contacto</p>
+          <a href="https://wa.me/573180825116">WhatsApp +57 318 082 5116</a>
+          <a href="mailto:administrativo@equipossupra.com">administrativo@equipossupra.com</a>
+          <a href="https://equipossupra.com" target="_blank" rel="noopener">equipossupra.com</a>
+          <span>Calle 59 # 3A-35, Ibagué, Tolima</span>
+        </div>
+
+        <div class="footer__brand">
+          <p class="label">Líneas de producto</p>
+          <p class="muted">Supra · profesional<br>Reload · semiprofesional<br>Mechanics Pro · industrial</p>
+        </div>
+
+        <p id="footer-meta" class="footer__meta"></p>
+      </div>
+    </footer>
+  </div>
+
+  <div id="toasts" class="toasts" aria-live="polite" aria-atomic="false"></div>
+
+  <noscript>
+    <div class="empty" style="margin:2rem">
+      <p class="empty__title">Este catálogo necesita JavaScript</p>
+      <p class="empty__text">
+        Los productos se leen directamente de la lista de precios oficial en PDF.
+        Activa JavaScript o escríbenos al +57 318 082 5116.
+      </p>
+    </div>
+  </noscript>
+
+  <script type="module" src="scripts/main.js"></script>
+</body>
+</html>

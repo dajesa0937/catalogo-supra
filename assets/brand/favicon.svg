@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Equipos Supra">
+  <!-- Marca reducida: fondo negro Supra con el trazo naranja inclinado del
+       logotipo. Legible a 16 px, donde el logotipo completo no lo sería. -->
+  <rect width="64" height="64" rx="10" fill="#100F0D"/>
+  <path d="M14 40 L36 16 h12 L26 40 Z" fill="#FFFFFF"/>
+  <path d="M22 48 L44 24 h8 L34 48 Z" fill="#EC6D26"/>
+</svg>

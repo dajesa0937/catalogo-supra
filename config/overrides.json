@@ -1,0 +1,24 @@
+{
+  "_documentacion": {
+    "que_es": "Correcciones y datos extra por código de producto, aplicados DESPUÉS de leer el PDF. Permite arreglar o enriquecer cualquier referencia sin tocar el código del parser.",
+    "cuando_usarlo": "Erratas del PDF, nombres comerciales más claros, palabras clave de búsqueda, especificaciones que la lista no trae, u ocultar una referencia descatalogada.",
+    "campos": {
+      "name": "Sustituye el nombre comercial.",
+      "category": "Reasigna la categoría (se recalcula su identificador).",
+      "brandId": "Fuerza la línea de producto: supra | reload | mechanics-pro.",
+      "summary": "Sustituye la descripción corta de la tarjeta.",
+      "specs": "Objeto clave/valor: añade o reemplaza filas de la ficha técnica.",
+      "notes": "Lista de aclaraciones que se AÑADEN a las del PDF.",
+      "keywords": "Texto extra que solo alimenta la búsqueda, no se muestra.",
+      "hidden": "true para retirar la referencia del catálogo."
+    },
+    "ejemplo": {
+      "SPS-260": {
+        "keywords": "bomba pistón acero fumigar cafetal",
+        "specs": { "Garantía": "12 meses" },
+        "notes": ["Incluye manual de instalación."]
+      }
+    }
+  },
+  "products": {}
+}

@@ -1,0 +1,286 @@
+/**
+ * Fachada de datos del catálogo. Es la única puerta que la interfaz usa para
+ * pedir productos: decide si sirve la caché o reparsea el PDF, aplica las
+ * sobrescrituras declarativas y expone consultas ya resueltas.
+ *
+ * @module data/catalogRepository
+ */
+
+import { APP_CONFIG } from '../../config/app.config.js';
+import { BRANDS } from '../../config/taxonomy.config.js';
+import { normalize, slugify } from '../core/text.js';
+import { enrichProduct } from './productParser.js';
+import { fingerprintPdf, parsePdf } from './pdfLoader.js';
+import { readValidMeta, readCatalog, readImage, writeCatalog, clearCache } from './cacheService.js';
+
+/** @type {{products: object[], categories: object[], brands: object[], warnings: string[], meta: object}|null} */
+let catalog = null;
+
+/** URLs de objeto vivas, para poder revocarlas y no filtrar memoria. */
+const objectUrls = new Map();
+
+/**
+ * Carga el catálogo: caché si es válida, PDF si no.
+ *
+ * @param {(progress: {phase: string, done: number, total: number}) => void} [onProgress]
+ * @returns {Promise<object>} el catálogo completo
+ */
+export async function load(onProgress = () => {}) {
+  if (catalog) return catalog;
+
+  onProgress({ phase: 'Comprobando la lista de precios', done: 0, total: 1 });
+  const fingerprint = await fingerprintPdf(APP_CONFIG.pdfUrl);
+  const meta = await readValidMeta(fingerprint);
+
+  if (meta) {
+    const cached = await readCatalog();
+    if (cached?.products?.length) {
+      catalog = { ...cached, meta: { ...cached.meta, fromCache: true, builtAt: meta.builtAt } };
+      onProgress({ phase: 'Catálogo listo', done: 1, total: 1 });
+      return catalog;
+    }
+  }
+
+  const parsed = await parsePdf(APP_CONFIG.pdfUrl, onProgress);
+  onProgress({ phase: 'Organizando el catálogo', done: 1, total: 1 });
+
+  const overrides = await loadOverrides();
+  const products = parsed.products
+    .map(enrichProduct)
+    .map((product) => applyOverride(product, overrides[product.code]))
+    .filter((product) => product.hidden !== true);
+
+  // La imagen se reindexa por código de producto: es la clave estable frente a
+  // un PDF nuevo, mientras que el identificador de región depende del maquetado.
+  const images = new Map();
+  for (const product of products) {
+    const blob = product.imageId ? parsed.images.get(product.imageId) : null;
+    if (blob) images.set(product.code, blob);
+  }
+
+  catalog = {
+    products,
+    categories: buildCategories(products),
+    brands: buildBrands(products),
+    warnings: parsed.warnings,
+    meta: { ...parsed.meta, fingerprint, builtAt: Date.now(), fromCache: false }
+  };
+
+  await writeCatalog(
+    { products, categories: catalog.categories, brands: catalog.brands, warnings: catalog.warnings, meta: catalog.meta },
+    images,
+    {
+      fingerprint,
+      schemaVersion: APP_CONFIG.cache.schemaVersion,
+      builtAt: Date.now(),
+      productCount: products.length
+    }
+  );
+
+  return catalog;
+}
+
+/**
+ * Devuelve el catálogo ya cargado.
+ * @returns {object|null}
+ */
+export function getCatalog() {
+  return catalog;
+}
+
+/**
+ * Busca un producto por su código.
+ * @param {string} code
+ * @returns {object|undefined}
+ */
+export function findByCode(code) {
+  return catalog?.products.find((product) => product.code === code);
+}
+
+/**
+ * Productos de la misma categoría, excluyendo el propio y ordenados por
+ * cercanía de precio: es lo que un vendedor de mostrador necesita ver cuando
+ * el cliente pide "algo parecido pero más económico".
+ *
+ * @param {object} product
+ * @param {number} [limit]
+ * @returns {object[]}
+ */
+export function findRelated(product, limit = APP_CONFIG.ui.relatedProductsCount) {
+  if (!catalog) return [];
+  const reference = product.priceGross ?? product.priceNet ?? 0;
+  return catalog.products
+    .filter((other) => other.code !== product.code && other.categoryId === product.categoryId)
+    .sort((a, b) => {
+      const distance = (item) => Math.abs((item.priceGross ?? item.priceNet ?? 0) - reference);
+      return distance(a) - distance(b);
+    })
+    .slice(0, limit);
+}
+
+/**
+ * URL de la imagen de un producto, priorizando la versión en alta resolución
+ * si existe en `assets/products/`. Devuelve `null` si no hay ninguna.
+ *
+ * @param {string} code
+ * @returns {Promise<string|null>}
+ */
+export async function getImageUrl(code) {
+  if (objectUrls.has(code)) return objectUrls.get(code);
+
+  const manifest = await loadHdManifest();
+  if (manifest.has(code)) {
+    const hdUrl = `${APP_CONFIG.hdImageDir}${manifest.get(code)}`;
+    objectUrls.set(code, hdUrl);
+    return hdUrl;
+  }
+
+  const blob = await readImage(code);
+  if (!blob) return null;
+  const url = URL.createObjectURL(blob);
+  objectUrls.set(code, url);
+  return url;
+}
+
+/** Revoca todas las URLs de objeto creadas. */
+export function releaseImageUrls() {
+  for (const url of objectUrls.values()) {
+    if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+  }
+  objectUrls.clear();
+}
+
+/**
+ * Fuerza una relectura completa del PDF en la próxima carga.
+ * @returns {Promise<void>}
+ */
+export async function invalidate() {
+  releaseImageUrls();
+  catalog = null;
+  await clearCache();
+}
+
+/* ------------------------- construcción de índices ------------------------ */
+
+/**
+ * @param {object[]} products
+ * @returns {{id: string, name: string, icon: string, count: number}[]}
+ */
+function buildCategories(products) {
+  const map = new Map();
+  for (const product of products) {
+    const entry = map.get(product.categoryId) ?? {
+      id: product.categoryId,
+      name: product.category,
+      icon: product.categoryIcon,
+      count: 0
+    };
+    entry.count += 1;
+    map.set(product.categoryId, entry);
+  }
+  return [...map.values()];
+}
+
+/**
+ * @param {object[]} products
+ * @returns {{id: string, name: string, color: string, tier: string, count: number}[]}
+ */
+function buildBrands(products) {
+  return BRANDS
+    .map((brand) => ({
+      id: brand.id,
+      name: brand.name,
+      color: brand.color,
+      tier: brand.tier,
+      count: products.filter((product) => product.brandId === brand.id).length
+    }))
+    .filter((brand) => brand.count > 0);
+}
+
+/* --------------------------- sobrescrituras ------------------------------ */
+
+/**
+ * Lee `config/overrides.json`, que permite corregir o enriquecer productos por
+ * código sin tocar el parser. Si el archivo no existe, no pasa nada.
+ * @returns {Promise<Record<string, object>>}
+ */
+async function loadOverrides() {
+  try {
+    const response = await fetch(APP_CONFIG.overridesUrl, { cache: 'no-cache' });
+    if (!response.ok) return {};
+    const data = await response.json();
+    return data?.products ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Aplica una sobrescritura a un producto. Los campos ausentes no se tocan y las
+ * especificaciones extra se añaden sin borrar las del PDF.
+ *
+ * @param {object} product
+ * @param {object} [override]
+ * @returns {object}
+ */
+function applyOverride(product, override) {
+  if (!override) return product;
+
+  const merged = { ...product };
+  if (override.name) merged.name = override.name;
+  if (override.category) {
+    merged.category = override.category;
+    merged.categoryId = slugify(override.category);
+  }
+  if (override.brandId) merged.brandId = override.brandId;
+  if (override.summary) merged.summary = override.summary;
+  if (override.hidden === true) merged.hidden = true;
+  if (Array.isArray(override.notes)) merged.notes = [...merged.notes, ...override.notes];
+  if (override.specs && typeof override.specs === 'object') {
+    const specs = [...merged.specs];
+    for (const [key, value] of Object.entries(override.specs)) {
+      const index = specs.findIndex((spec) => normalize(spec.key) === normalize(key));
+      if (index >= 0) specs[index] = { key, value };
+      else specs.push({ key, value });
+    }
+    merged.specs = specs;
+  }
+  merged.searchText = normalize(`${merged.searchText} ${override.keywords ?? ''}`);
+  return merged;
+}
+
+/* ----------------------- imágenes en alta resolución ---------------------- */
+
+/** @type {Map<string, string>|null} */
+let hdManifest = null;
+
+/**
+ * Índice de fotografías en alta resolución.
+ *
+ * Se resuelve con un único `fetch` a `assets/products/manifest.json` en lugar
+ * de comprobar la existencia de ochenta archivos uno a uno. Si el manifiesto no
+ * existe, el catálogo usa las imágenes del PDF y no se hace ni una petición de
+ * más: la mejora es puramente aditiva.
+ *
+ * Formato: `{ "SPS-260": "SPS-260.webp", "SGE-210": "SGE-210.jpg" }`
+ * o, en su forma corta, `{ "codes": ["SPS-260", "SGE-210"] }`.
+ *
+ * @returns {Promise<Map<string, string>>}
+ */
+async function loadHdManifest() {
+  if (hdManifest) return hdManifest;
+  hdManifest = new Map();
+  try {
+    const response = await fetch(`${APP_CONFIG.hdImageDir}manifest.json`, { cache: 'no-cache' });
+    if (!response.ok) return hdManifest;
+    const data = await response.json();
+    if (Array.isArray(data?.codes)) {
+      for (const code of data.codes) hdManifest.set(code, `${code}${APP_CONFIG.hdImageExt}`);
+    } else if (data && typeof data === 'object') {
+      for (const [code, file] of Object.entries(data)) hdManifest.set(code, file);
+    }
+  } catch {
+    // Sin manifiesto se usan las imágenes extraídas del PDF.
+  }
+  return hdManifest;
+}

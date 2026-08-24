@@ -1,0 +1,4 @@
+{
+  "_documentacion": "Índice de fotografías en alta resolución. Coloca los archivos en esta misma carpeta con el nombre del código de producto (por ejemplo SPS-260.webp) y añade el código a la lista. El catálogo las usará automáticamente en lugar de las imágenes extraídas del PDF, que miden entre 200 y 360 px. Mientras la lista esté vacía se usan las del PDF y no se hace ninguna petición de más.",
+  "codes": []
+}
