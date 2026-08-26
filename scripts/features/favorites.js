@@ -67,6 +67,33 @@ export function countFavorites() {
   return favorites.size;
 }
 
+/**
+ * Descarta los favoritos cuyas referencias ya no existen en el catálogo.
+ *
+ * Cuando llega una lista de precios nueva, los productos descatalogados
+ * desaparecen del catálogo pero sus códigos siguen guardados en este navegador.
+ * Sin depurarlos, el contador dice "3 favoritos" y solo aparecen dos: el
+ * vendedor cree que la aplicación perdió algo suyo.
+ *
+ * Solo se ejecuta con un catálogo cargado de verdad. Si viniera vacío por un
+ * fallo de red, borraría los favoritos de todo el mundo.
+ *
+ * @param {Iterable<string>} validCodes Códigos presentes en el catálogo actual
+ * @returns {string[]} códigos retirados
+ */
+export function reconcileFavorites(validCodes) {
+  const valid = new Set(validCodes);
+  if (valid.size === 0) return [];
+
+  const removed = [...favorites].filter((code) => !valid.has(code));
+  if (removed.length === 0) return [];
+
+  for (const code of removed) favorites.delete(code);
+  persist();
+  emit(EVENTS.FAVORITES_CHANGED, { code: null, active: false, total: favorites.size });
+  return removed;
+}
+
 /** Vacía la lista de favoritos. */
 export function clearFavorites() {
   favorites = new Set();

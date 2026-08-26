@@ -9,7 +9,7 @@
  * @module ui/app
  */
 
-import { APP_CONFIG } from '../../config/app.config.js';
+import { APP_CONFIG, MODE } from '../../config/app.config.js';
 import { el, icon, qs } from '../core/dom.js';
 import { getState, setState, subscribe, hasActiveFilters } from '../core/store.js';
 import { on, EVENTS } from '../core/eventBus.js';
@@ -17,6 +17,7 @@ import { longDate } from '../core/format.js';
 import { load, findByCode } from '../data/catalogRepository.js';
 import { applyQuery } from '../features/filters.js';
 import { initTheme } from '../features/theme.js';
+import { reconcileFavorites } from '../features/favorites.js';
 import { initRouter, currentRoute } from '../features/router.js';
 import { updateLoader, hideLoader, failLoader } from './loader.js';
 import { initToasts } from './toast.js';
@@ -25,6 +26,7 @@ import { initToolbar, updateToolbar } from './toolbar.js';
 import { initSidebar, updateSidebar } from './sidebar.js';
 import { renderCatalog } from './catalogView.js';
 import { showDetail, closeDetail } from './detailView.js';
+import { toast } from './toast.js';
 
 /** @type {object|null} */
 let catalog = null;
@@ -45,10 +47,12 @@ export async function start() {
     return;
   }
 
+  purgeStaleFavorites();
   initHeader(() => ({ visible, catalog }));
   initToolbar(catalog);
   initSidebar(catalog);
   renderDiagnostics();
+  renderFooterContact();
   renderFooterMeta();
 
   subscribe(onStateChange);
@@ -75,8 +79,15 @@ function applyRoute(route) {
 
   if (route.view === 'product') {
     const product = findByCode(route.param);
-    if (product) showDetail(product);
-    else window.location.hash = '#/';
+    if (product) {
+      showDetail(product);
+    } else {
+      // Un enlace compartido por WhatsApp puede apuntar a una referencia que la
+      // lista nueva ya no incluye. Devolver al catálogo en silencio deja al
+      // vendedor sin saber por qué; se le dice qué pasó.
+      toast(`La referencia ${route.param} ya no está en el catálogo`, 'icon-alert');
+      window.location.hash = '#/';
+    }
   } else {
     closeDetail();
   }
@@ -127,6 +138,24 @@ function titleFor(state) {
   return category ? `${category.name} · ${base}` : base;
 }
 
+/**
+ * Retira los favoritos de referencias descatalogadas y avisa de ello.
+ *
+ * Es el efecto colateral de publicar una lista de precios nueva: los productos
+ * retirados desaparecen del catálogo, pero sus códigos siguen guardados en el
+ * navegador de cada vendedor.
+ */
+function purgeStaleFavorites() {
+  const removed = reconcileFavorites(catalog.products.map((product) => product.code));
+  if (removed.length === 0) return;
+  toast(
+    removed.length === 1
+      ? `Se quitó ${removed[0]} de favoritos: ya no está en la lista`
+      : `Se quitaron ${removed.length} favoritos que ya no están en la lista`,
+    'icon-alert'
+  );
+}
+
 /** Recupera las preferencias guardadas en LocalStorage. */
 function restorePreferences() {
   try {
@@ -161,12 +190,33 @@ function renderDiagnostics() {
   ]));
 }
 
+/**
+ * Datos de contacto del pie, solo en el catálogo interno.
+ *
+ * En modo presentación se omiten por completo: la pieza circula entre los
+ * clientes de los distribuidores, y una vía directa a Equipos Supra dejaría al
+ * distribuidor fuera de su propia venta.
+ */
+function renderFooterContact() {
+  const container = qs('#footer-contact');
+  if (!container || !MODE.showDirectContact) return;
+
+  const { whatsapp, phone, email, website, address } = APP_CONFIG.contact;
+  container.hidden = false;
+  container.append(
+    el('p', { class: 'label', text: 'Contacto' }),
+    el('a', { href: `https://wa.me/${whatsapp}`, text: `WhatsApp ${phone}` }),
+    el('a', { href: `mailto:${email}`, text: email }),
+    el('a', { href: website, target: '_blank', rel: 'noopener', text: website.replace(/^https?:\/\//, '') }),
+    el('span', { text: address })
+  );
+}
+
 /** Pie: procedencia de los datos y momento de la última lectura. */
 function renderFooterMeta() {
   const meta = catalog?.meta ?? {};
   qs('#footer-meta').innerHTML = [
-    `Datos leídos de <strong>${APP_CONFIG.pdfUrl}</strong>`,
     `${catalog.products.length} productos · ${catalog.categories.length} categorías`,
-    `Última lectura: ${longDate(meta.builtAt ?? Date.now())}${meta.fromCache ? ' (desde caché)' : ''}`
+    `Actualizado: ${longDate(meta.builtAt ?? Date.now())}`
   ].join('<br>');
 }

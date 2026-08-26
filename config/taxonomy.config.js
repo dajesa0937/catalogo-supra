@@ -130,6 +130,44 @@ export const WORD_FIXES = Object.freeze({
 });
 
 /**
+ * Estados de disponibilidad.
+ *
+ * Se asignan desde `config/overrides.json` (campo `stock`) y son independientes
+ * de la lista de precios: el PDF dice qué existe y cuánto vale, no si queda
+ * inventario. Un producto agotado SIGUE en el catálogo, con distintivo: el
+ * vendedor necesita poder encontrarlo y decirle al cliente que no hay, no que
+ * la referencia se haya esfumado como si nunca hubiera existido.
+ *
+ * Para añadir un estado nuevo basta con una entrada más aquí.
+ */
+export const STOCK_STATES = Object.freeze({
+  disponible: Object.freeze({
+    label: 'Disponible',
+    tone: 'ok',
+    /** Sin distintivo: es el estado normal y no merece ruido visual. */
+    badge: false
+  }),
+  agotado: Object.freeze({
+    label: 'Agotado',
+    tone: 'danger',
+    badge: true,
+    note: 'Sin existencias en este momento. Consulta el tiempo de reposición.',
+    /** Mensaje de WhatsApp adaptado al estado. */
+    inquiry: 'quisiera saber cuándo tendrán disponible'
+  }),
+  'bajo-pedido': Object.freeze({
+    label: 'Bajo pedido',
+    tone: 'warn',
+    badge: true,
+    note: 'No se mantiene en inventario: se trae bajo pedido.',
+    inquiry: 'quisiera cotizar bajo pedido'
+  })
+});
+
+/** Estado asignado a todo producto que no lo declare explícitamente. */
+export const DEFAULT_STOCK = 'disponible';
+
+/**
  * Claves de ficha técnica destacadas en la tarjeta de producto,
  * por orden de prioridad. La primera que exista se muestra como resumen.
  */

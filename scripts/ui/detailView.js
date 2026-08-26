@@ -9,8 +9,8 @@
  * @module ui/detailView
  */
 
-import { APP_CONFIG } from '../../config/app.config.js';
-import { BRANDS } from '../../config/taxonomy.config.js';
+import { APP_CONFIG, MODE } from '../../config/app.config.js';
+import { BRANDS, STOCK_STATES, DEFAULT_STOCK } from '../../config/taxonomy.config.js';
 import { el, icon, qs, trapFocus } from '../core/dom.js';
 import { currency } from '../core/format.js';
 import { findRelated, getImageUrl } from '../data/catalogRepository.js';
@@ -30,6 +30,7 @@ export async function showDetail(product) {
   closeDetail();
 
   const brand = BRANDS.find((item) => item.id === product.brandId);
+  const stock = STOCK_STATES[product.stock] ?? STOCK_STATES[DEFAULT_STOCK];
   const imageUrl = await getImageUrl(product.code);
 
   const image = imageUrl
@@ -61,10 +62,13 @@ export async function showDetail(product) {
   const info = el('div', { class: 'detail__info' }, [
     el('div', { class: 'detail__eyebrow' }, [
       el('span', { class: 'detail__code', text: product.code }),
-      brand && el('span', { class: 'label', text: `${brand.name} · ${brand.tier}` })
+      brand && el('span', { class: 'label', text: `${brand.name} · ${brand.tier}` }),
+      stock.badge && el('span', { class: `stock-badge stock-badge--${stock.tone}`, text: stock.label })
     ]),
     el('h1', { class: 'detail__name', text: product.name }),
-    priceBlock(product),
+    stock.note && el('p', { class: `detail__note detail__note--${stock.tone}` },
+      [icon('icon-alert'), stock.note]),
+    MODE.showPrices ? priceBlock(product) : enquireBlock(),
     product.specs.length > 0 && el('section', {}, [
       el('p', { class: 'label', style: 'margin-bottom:var(--s-2)', text: 'Ficha técnica' }),
       el('div', { class: 'specs' }, product.specs.map((spec) => el('div', { class: 'specs__row' }, [
@@ -74,16 +78,24 @@ export async function showDetail(product) {
     ]),
     product.notes.length > 0 && el('div', { class: 'detail__notes' },
       product.notes.map((note) => el('p', { class: 'detail__note' }, [icon('icon-alert'), note]))),
+    product.details?.length > 0 && el('ul', { class: 'detail__details' },
+      product.details.map((detail) => el('li', { text: detail }))),
     el('div', { class: 'detail__actions' }, [
       favButton,
-      el('a', {
+      // El botón de contacto solo existe en el catálogo interno. En modo
+      // presentación lo enseña un distribuidor a SU cliente: un enlace directo
+      // a Equipos Supra lo dejaría fuera de su propia venta.
+      MODE.showDirectContact && el('a', {
         class: 'button button--primary',
-        href: whatsappLink(product),
+        href: whatsappLink(product, stock),
         target: '_blank',
         rel: 'noopener'
       }, [icon('icon-whatsapp'), 'Consultar por WhatsApp'])
     ]),
-    el('p', { class: 'label', text: `Página ${product.page} de la lista de precios oficial` })
+    // Referencia a la página del documento oficial: le sirve a quien lo tiene
+    // delante para contrastar. Al cliente de un distribuidor no le dice nada, y
+    // además le anuncia la existencia de una lista de precios que no debe pedir.
+    MODE.showPrices && el('p', { class: 'label', text: `Página ${product.page} de la lista de precios oficial` })
   ]);
 
   const panel = el('div', {
@@ -154,7 +166,27 @@ function priceBlock(product) {
 }
 
 /**
- * Productos relacionados: misma categoría, precio cercano.
+ * Sustituto del bloque de precios en modo presentación. Ocupa su sitio a
+ * propósito: un hueco vacío se lee como una web incompleta, y el catálogo debe
+ * parecer lo que es, una decisión y no una carencia.
+ * @returns {HTMLElement}
+ */
+function enquireBlock() {
+  return el('div', { class: 'detail__enquire' }, [
+    el('span', { class: 'price__label', text: 'Precio' }),
+    el('span', { class: 'detail__enquire-value', text: 'Bajo consulta' }),
+    el('span', { class: 'detail__enquire-note', text: 'Consulta el precio con tu distribuidor Supra.' })
+  ]);
+}
+
+/**
+ * Productos relacionados: misma categoría y, si esa categoría tiene una sola
+ * referencia, de la misma línea de producto.
+ *
+ * El titular se ajusta a lo que de verdad se está mostrando. Anunciar "también
+ * en esta categoría" sobre productos de otra categoría es una mentira pequeña,
+ * pero de las que hacen dudar del resto de la ficha.
+ *
  * @param {object} product
  * @returns {HTMLElement|null}
  */
@@ -162,8 +194,10 @@ function relatedSection(product) {
   const related = findRelated(product);
   if (related.length === 0) return null;
 
+  const mismaCategoria = related.every((item) => item.categoryId === product.categoryId);
+
   return el('section', { class: 'related' }, [
-    el('p', { class: 'label', text: 'También en esta categoría' }),
+    el('p', { class: 'label', text: mismaCategoria ? 'También en esta categoría' : 'También te puede interesar' }),
     el('div', { class: 'related__grid' }, related.map((item) => {
       const thumb = el('img', {
         class: 'related__thumb',
@@ -179,7 +213,7 @@ function relatedSection(product) {
         thumb,
         el('span', { class: 'code faint', text: item.code }),
         el('span', { class: 'related__name clamp-2', text: item.name }),
-        el('span', { class: 'related__price', text: currency(item.priceGross) })
+        MODE.showPrices && el('span', { class: 'related__price', text: currency(item.priceGross) })
       ]);
     }))
   ]);
@@ -191,7 +225,10 @@ function relatedSection(product) {
  * @param {object} product
  * @returns {string}
  */
-function whatsappLink(product) {
-  const message = `Hola, quisiera información sobre ${product.name} (referencia ${product.code}).`;
+function whatsappLink(product, stock) {
+  // El texto se adapta al estado: preguntar por un producto agotado como si
+  // estuviera disponible hace perder tiempo a las dos partes.
+  const intent = stock?.inquiry ?? 'quisiera información sobre';
+  const message = `Hola, ${intent} ${product.name} (referencia ${product.code}).`;
   return `https://wa.me/${APP_CONFIG.contact.whatsapp}?text=${encodeURIComponent(message)}`;
 }

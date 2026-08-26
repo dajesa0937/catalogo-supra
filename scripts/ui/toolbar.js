@@ -4,7 +4,7 @@
  * @module ui/toolbar
  */
 
-import { APP_CONFIG } from '../../config/app.config.js';
+import { APP_CONFIG, MODE } from '../../config/app.config.js';
 import { clear, el, icon, qs } from '../core/dom.js';
 import { pluralize } from '../core/format.js';
 import { getState, setState } from '../core/store.js';
@@ -20,9 +20,11 @@ export function initToolbar(catalog) {
   const controls = qs('#toolbar-controls');
   clear(controls);
 
+  // Sin precios publicados, el conmutador P.V.D / sin IVA no tiene nada que
+  // conmutar y el orden por precio no tiene por qué ordenar.
   controls.append(
     brandFilter(catalog.brands),
-    priceToggle(),
+    ...(MODE.showPrices ? [priceToggle()] : []),
     sortSelect(),
     viewToggle()
   );
@@ -142,11 +144,15 @@ function priceToggle() {
  * @returns {HTMLElement}
  */
 function sortSelect() {
+  const options = MODE.showPrices
+    ? SORT_OPTIONS
+    : SORT_OPTIONS.filter((option) => !option.id.startsWith('price-'));
+
   const select = el('select', {
     id: 'sort-select',
     'aria-label': 'Ordenar el catálogo',
     onchange: (event) => setState({ sort: event.target.value })
-  }, SORT_OPTIONS.map((option) => el('option', { value: option.id, text: option.label })));
+  }, options.map((option) => el('option', { value: option.id, text: option.label })));
 
   return el('div', { class: 'select' }, [select, icon('icon-chevron-down', 'select__chevron')]);
 }

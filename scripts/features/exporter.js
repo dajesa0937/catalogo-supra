@@ -9,7 +9,7 @@
  * @module features/exporter
  */
 
-import { APP_CONFIG } from '../../config/app.config.js';
+import { APP_CONFIG, MODE } from '../../config/app.config.js';
 
 /**
  * Estructura serializable de un producto, sin campos internos de la interfaz.
@@ -17,17 +17,28 @@ import { APP_CONFIG } from '../../config/app.config.js';
  * @returns {object}
  */
 function toPlainProduct(product) {
-  return {
+  const plano = {
     codigo: product.code,
     nombre: product.name,
     categoria: product.category,
     marca: product.brandId,
-    precio_sin_iva: product.priceNet,
-    precio_pvd: product.priceGross,
+    disponibilidad: product.stock,
     ficha_tecnica: Object.fromEntries(product.specs.map((spec) => [spec.key, spec.value])),
     notas: product.notes,
+    detalles: product.details ?? [],
     pagina_pdf: product.page
   };
+
+  // La exportación es otra puerta de salida de los precios. Si el catálogo no
+  // los publica, el archivo descargado tampoco puede llevarlos.
+  if (MODE.exportPrices) {
+    plano.precio_sin_iva = product.priceNet;
+    plano.precio_pvd = product.priceGross;
+    // Si el precio se corrigió a mano, se conserva el del PDF para poder
+    // auditar de dónde sale cada cifra.
+    plano.precio_original_pdf = product.priceFromPdf ?? null;
+  }
+  return plano;
 }
 
 /**
@@ -55,14 +66,19 @@ export function exportJson(products, meta = {}) {
  * @param {object[]} products
  */
 export function exportCsv(products) {
-  const header = ['Código', 'Nombre', 'Categoría', 'Marca', 'P.V.D sin IVA', 'P.V.D', 'Ficha técnica'];
+  const columnasPrecio = MODE.exportPrices ? ['P.V.D sin IVA', 'P.V.D', 'Precio ajustado'] : [];
+  const header = ['Código', 'Nombre', 'Categoría', 'Marca', 'Disponibilidad',
+    ...columnasPrecio, 'Ficha técnica'];
+
   const rows = products.map((product) => [
     product.code,
     product.name,
     product.category,
     product.brandId,
-    product.priceNet ?? '',
-    product.priceGross ?? '',
+    product.stock ?? '',
+    ...(MODE.exportPrices
+      ? [product.priceNet ?? '', product.priceGross ?? '', product.priceFromPdf ? 'sí' : '']
+      : []),
     product.specs.map((spec) => `${spec.key}: ${spec.value}`).join(' | ')
   ]);
 

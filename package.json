@@ -5,6 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "generar": "node tools/generar-catalogo.mjs",
     "start": "npx --yes serve .",
     "test": "npm run test:parser && npm run test:e2e",
     "test:parser": "node tests/parser.test.mjs",

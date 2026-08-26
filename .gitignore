@@ -5,6 +5,14 @@ package-lock.json
 # Capturas generadas por la suite de pruebas
 tests/*.png
 
+# La lista de precios NO se publica.
+#
+# El catálogo lo enseñan los distribuidores a sus propios clientes; si el PDF
+# viajara con el sitio, cualquiera podría descargarlo desde la misma dirección
+# y leer los precios de distribución completos. Se lee en local con
+# `npm run generar` y solo sube el resultado, sin precios.
+data/*.pdf
+
 # Sistema operativo y editores
 .DS_Store
 Thumbs.db

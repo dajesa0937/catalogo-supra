@@ -6,8 +6,8 @@
  * @module data/catalogRepository
  */
 
-import { APP_CONFIG } from '../../config/app.config.js';
-import { BRANDS } from '../../config/taxonomy.config.js';
+import { APP_CONFIG, MODE } from '../../config/app.config.js';
+import { BRANDS, STOCK_STATES, DEFAULT_STOCK } from '../../config/taxonomy.config.js';
 import { normalize, slugify } from '../core/text.js';
 import { enrichProduct } from './productParser.js';
 import { fingerprintPdf, parsePdf } from './pdfLoader.js';
@@ -27,6 +27,16 @@ const objectUrls = new Map();
  */
 export async function load(onProgress = () => {}) {
   if (catalog) return catalog;
+
+  // Modo presentación: los datos vienen ya horneados por `npm run generar`.
+  // Ni se descarga el PDF ni se carga PDF.js, así que el arranque es inmediato
+  // y —lo que de verdad importa— la lista de precios no está publicada.
+  if (MODE.source === 'baked') {
+    const baked = await loadBaked(onProgress);
+    if (baked) return baked;
+    console.warn('[catálogo] no encuentro el catálogo generado; leo el PDF directamente. '
+      + 'Ejecuta `npm run generar` antes de publicar.');
+  }
 
   onProgress({ phase: 'Comprobando la lista de precios', done: 0, total: 1 });
   const fingerprint = await fingerprintPdf(APP_CONFIG.pdfUrl);
@@ -81,6 +91,44 @@ export async function load(onProgress = () => {}) {
 }
 
 /**
+ * Carga el catálogo horneado. Devuelve `null` si todavía no se ha generado, en
+ * cuyo caso se cae a leer el PDF: así el proyecto sigue siendo utilizable en
+ * local aunque falte el paso de generación.
+ *
+ * @param {(progress: {phase: string, done: number, total: number}) => void} onProgress
+ * @returns {Promise<object|null>}
+ */
+async function loadBaked(onProgress) {
+  try {
+    onProgress({ phase: 'Cargando el catálogo', done: 0, total: 1 });
+    const response = await fetch(APP_CONFIG.bakedUrl, { cache: 'no-cache' });
+    if (!response.ok) return null;
+
+    const data = await response.json();
+    if (!Array.isArray(data?.productos) || data.productos.length === 0) return null;
+
+    const overrides = await loadOverrides();
+    const products = data.productos
+      .map((product) => applyOverride(product, overrides[product.code]))
+      .filter((product) => product.hidden !== true);
+
+    catalog = {
+      products,
+      categories: buildCategories(products),
+      brands: buildBrands(products),
+      warnings: data.avisos ?? [],
+      meta: { ...data.origen, builtAt: Date.parse(data.generado) || Date.now(), baked: true }
+    };
+
+    onProgress({ phase: 'Catálogo listo', done: 1, total: 1 });
+    return catalog;
+  } catch (error) {
+    console.warn('[catálogo] no se pudo leer el catálogo generado', error);
+    return null;
+  }
+}
+
+/**
  * Devuelve el catálogo ya cargado.
  * @returns {object|null}
  */
@@ -98,9 +146,16 @@ export function findByCode(code) {
 }
 
 /**
- * Productos de la misma categoría, excluyendo el propio y ordenados por
- * cercanía de precio: es lo que un vendedor de mostrador necesita ver cuando
- * el cliente pide "algo parecido pero más económico".
+ * Productos que conviene enseñar junto a este.
+ *
+ * Primero los de su misma categoría: es lo que un vendedor de mostrador
+ * necesita cuando el cliente pide "algo parecido pero más económico". Si hay
+ * precios, se ordenan por cercanía de precio; si no —modo presentación—, se
+ * respeta el orden del catálogo, que ya agrupa por familia.
+ *
+ * Cinco referencias son las únicas de su categoría (la ahoyadora, la sopladora,
+ * la motoazada…). Para esas se completa con productos de la misma línea de
+ * producto: una ficha que termina en un hueco parece un catálogo incompleto.
  *
  * @param {object} product
  * @param {number} [limit]
@@ -108,14 +163,36 @@ export function findByCode(code) {
  */
 export function findRelated(product, limit = APP_CONFIG.ui.relatedProductsCount) {
   if (!catalog) return [];
-  const reference = product.priceGross ?? product.priceNet ?? 0;
-  return catalog.products
-    .filter((other) => other.code !== product.code && other.categoryId === product.categoryId)
-    .sort((a, b) => {
-      const distance = (item) => Math.abs((item.priceGross ?? item.priceNet ?? 0) - reference);
-      return distance(a) - distance(b);
-    })
-    .slice(0, limit);
+
+  const reference = product.priceGross ?? product.priceNet ?? null;
+  const byPrice = (a, b) => {
+    const distance = (item) => Math.abs((item.priceGross ?? item.priceNet ?? 0) - reference);
+    return distance(a) - distance(b);
+  };
+
+  const others = catalog.products.filter((other) => other.code !== product.code);
+  const sameCategory = others.filter((other) => other.categoryId === product.categoryId);
+  if (reference !== null) sameCategory.sort(byPrice);
+
+  if (sameCategory.length >= limit) return sameCategory.slice(0, limit);
+
+  // El relleno toma UNA referencia por categoría en vez de las cuatro primeras
+  // que encuentre. Puestas junto a una ahoyadora, cuatro bombas de fumigación
+  // seguidas parecen un error; cuatro familias distintas se leen como una
+  // invitación a seguir mirando, que es justo lo que hace falta ahí.
+  const yaElegidos = new Set(sameCategory.map((item) => item.code));
+  const categoriasVistas = new Set([product.categoryId]);
+  const relleno = [];
+  for (const other of others) {
+    if (yaElegidos.has(other.code)) continue;
+    if (other.brandId !== product.brandId) continue;
+    if (categoriasVistas.has(other.categoryId)) continue;
+    categoriasVistas.add(other.categoryId);
+    relleno.push(other);
+    if (sameCategory.length + relleno.length >= limit) break;
+  }
+
+  return [...sameCategory, ...relleno].slice(0, limit);
 }
 
 /**
@@ -134,6 +211,8 @@ export async function getImageUrl(code) {
     objectUrls.set(code, hdUrl);
     return hdUrl;
   }
+
+  if (MODE.source === 'baked') return null;   // sin manifiesto no hay imagen
 
   const blob = await readImage(code);
   if (!blob) return null;
@@ -235,7 +314,31 @@ function applyOverride(product, override) {
   if (override.brandId) merged.brandId = override.brandId;
   if (override.summary) merged.summary = override.summary;
   if (override.hidden === true) merged.hidden = true;
+
+  // Disponibilidad. Un estado desconocido se ignora en vez de romper la ficha:
+  // un error de tecleo en el archivo de sobrescrituras no debe tumbar nada.
+  if (typeof override.stock === 'string') {
+    const stock = override.stock.trim().toLowerCase();
+    if (Object.hasOwn(STOCK_STATES, stock)) merged.stock = stock;
+    else console.warn(`[overrides] estado de stock desconocido en ${product.code}: "${override.stock}"`);
+  }
+
+  // Precios corregidos a mano, para no tener que esperar a la lista siguiente.
+  // Se marca la corrección: queda registrada en las exportaciones, de modo que
+  // siempre se puede saber qué precio viene del PDF y cuál se ajustó aquí.
+  for (const field of ['priceNet', 'priceGross']) {
+    const value = override[field];
+    if (value === undefined || value === null) continue;
+    const amount = Number(value);
+    if (!Number.isFinite(amount) || amount < 0) {
+      console.warn(`[overrides] ${field} inválido en ${product.code}: "${value}"`);
+      continue;
+    }
+    merged.priceFromPdf = { ...(merged.priceFromPdf ?? {}), [field]: product[field] };
+    merged[field] = Math.round(amount);
+  }
   if (Array.isArray(override.notes)) merged.notes = [...merged.notes, ...override.notes];
+  if (Array.isArray(override.details)) merged.details = [...(merged.details ?? []), ...override.details];
   if (override.specs && typeof override.specs === 'object') {
     const specs = [...merged.specs];
     for (const [key, value] of Object.entries(override.specs)) {
@@ -251,7 +354,17 @@ function applyOverride(product, override) {
 
 /* ----------------------- imágenes en alta resolución ---------------------- */
 
-/** @type {Map<string, string>|null} */
+/**
+ * Se memoriza la PROMESA, no el mapa ya resuelto.
+ *
+ * Las ochenta tarjetas piden su imagen a la vez, en el mismo tick. Si se
+ * guardara el mapa vacío antes del `await`, las setenta y nueve llamadas
+ * siguientes lo encontrarían "listo" y todavía sin datos: se quedarían sin
+ * fotografía para siempre. Guardando la promesa, todas esperan a la misma
+ * petición y todas ven el manifiesto completo.
+ *
+ * @type {Promise<Map<string, string>>|null}
+ */
 let hdManifest = null;
 
 /**
@@ -267,20 +380,27 @@ let hdManifest = null;
  *
  * @returns {Promise<Map<string, string>>}
  */
-async function loadHdManifest() {
-  if (hdManifest) return hdManifest;
-  hdManifest = new Map();
-  try {
-    const response = await fetch(`${APP_CONFIG.hdImageDir}manifest.json`, { cache: 'no-cache' });
-    if (!response.ok) return hdManifest;
-    const data = await response.json();
-    if (Array.isArray(data?.codes)) {
-      for (const code of data.codes) hdManifest.set(code, `${code}${APP_CONFIG.hdImageExt}`);
-    } else if (data && typeof data === 'object') {
-      for (const [code, file] of Object.entries(data)) hdManifest.set(code, file);
+function loadHdManifest() {
+  hdManifest ??= (async () => {
+    const index = new Map();
+    try {
+      const response = await fetch(`${APP_CONFIG.hdImageDir}manifest.json`, { cache: 'no-cache' });
+      if (!response.ok) return index;
+      const data = await response.json();
+      if (Array.isArray(data?.codes)) {
+        for (const code of data.codes) index.set(code, `${code}${APP_CONFIG.hdImageExt}`);
+      } else if (data && typeof data === 'object') {
+        for (const [code, file] of Object.entries(data)) {
+          // Las claves que empiezan por guion bajo son documentación del propio
+          // archivo, no códigos de producto.
+          if (code.startsWith('_') || typeof file !== 'string') continue;
+          index.set(code, file);
+        }
+      }
+    } catch {
+      // Sin manifiesto se usan las imágenes extraídas del PDF.
     }
-  } catch {
-    // Sin manifiesto se usan las imágenes extraídas del PDF.
-  }
+    return index;
+  })();
   return hdManifest;
 }

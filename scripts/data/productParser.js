@@ -30,7 +30,7 @@
 import { PARSER_CONFIG } from '../../config/parser.config.js';
 import {
   BRANDS, DEFAULT_BRAND_ID, CATEGORY_ICONS, DEFAULT_CATEGORY_ICON,
-  SPEC_KEY_FIXES, HIGHLIGHT_SPEC_KEYS, WORD_FIXES
+  SPEC_KEY_FIXES, HIGHLIGHT_SPEC_KEYS, WORD_FIXES, DEFAULT_STOCK
 } from '../../config/taxonomy.config.js';
 import { collapse, normalize, parseCurrency, sentenceCase, slugify } from '../core/text.js';
 
@@ -54,7 +54,8 @@ import { collapse, normalize, parseCurrency, sentenceCase, slugify } from '../co
  * @property {string} name
  * @property {string} category
  * @property {{key: string, value: string}[]} specs
- * @property {string[]} notes
+ * @property {string[]} notes    Aclaraciones comerciales ("NOTA: no incluye…")
+ * @property {string[]} details  Renglones descriptivos sueltos ("Color gris")
  * @property {number|null} priceNet
  * @property {number|null} priceGross
  * @property {number} page
@@ -97,7 +98,7 @@ export function parsePage(lines, imageRegions, pageNumber, context) {
     // ("SWP-" + "F20/20AH"); se reconstruye concatenando la celda completa.
     const rawCode = cell('code', '');
     const image = imageRegions.find((region) => inBand((region.top + region.bottom) / 2));
-    const { specs, notes } = splitBody(block.body);
+    const { specs, notes, details } = splitBody(block.body);
 
     const product = {
       code: isCode(rawCode) ? cleanCode(rawCode) : null,
@@ -105,6 +106,7 @@ export function parsePage(lines, imageRegions, pageNumber, context) {
       category: block.category ?? 'Sin categoría',
       specs,
       notes,
+      details,
       priceNet: firstPrice(cell('priceNet', ' ')),
       priceGross: firstPrice(cell('priceGross', ' ')),
       page: pageNumber,
@@ -117,7 +119,7 @@ export function parsePage(lines, imageRegions, pageNumber, context) {
       && product.priceGross === null && specs.length === 0;
     if (isOrphanNote) {
       const previous = products[products.length - 1];
-      if (previous && product.name) previous.notes.push(product.name);
+      if (previous && product.name) previous.details.push(product.name);
       return;
     }
 
@@ -244,13 +246,21 @@ function isUppercaseDominant(text) {
 const MAX_TITLE_LINES = 3;
 
 /**
- * Separa el cuerpo del bloque en pares clave/valor y notas libres.
+ * Separa el cuerpo del bloque en tres cosas distintas.
+ *
+ * La distinción entre `notes` y `details` no es cosmética. Una aclaración
+ * comercial ("NOTA: no incluye manguera") condiciona la venta y merece
+ * destacarse; un renglón descriptivo suelto ("Color gris") es solo un dato más.
+ * Presentar los dos con el mismo icono de advertencia convierte la ficha en una
+ * sucesión de alarmas falsas y hace que las de verdad dejen de leerse.
+ *
  * @param {string[]} bodyLines
- * @returns {{ specs: {key: string, value: string}[], notes: string[] }}
+ * @returns {{ specs: {key: string, value: string}[], notes: string[], details: string[] }}
  */
 function splitBody(bodyLines) {
   const specs = [];
   const notes = [];
+  const details = [];
 
   for (const raw of bodyLines) {
     const line = collapse(raw).replace(/^[-•·]\s*/, '');
@@ -270,10 +280,10 @@ function splitBody(bodyLines) {
       const value = collapse(match[2]).replace(/^\.\s*/, '').replace(/\.$/, '');
       if (key && value) { specs.push({ key, value }); continue; }
     }
-    notes.push(sentenceCase(line));
+    details.push(sentenceCase(line));
   }
 
-  return { specs, notes };
+  return { specs, notes, details };
 }
 
 /**
@@ -385,6 +395,9 @@ export function enrichProduct(raw) {
     brandId,
     categoryId,
     categoryIcon: iconForCategory(raw.category),
+    // La disponibilidad no sale del PDF: la lista de precios dice qué existe y
+    // cuánto vale, no cuánto queda en bodega. Se declara en overrides.json.
+    stock: DEFAULT_STOCK,
     summary: buildSummary(raw),
     searchText: buildSearchText(raw, brandId)
   };
@@ -443,5 +456,6 @@ function buildSummary(raw) {
  */
 function buildSearchText(raw, brandId) {
   const specText = raw.specs.map((spec) => `${spec.key} ${spec.value}`).join(' ');
-  return normalize([raw.code, raw.name, raw.category, brandId, specText, raw.notes.join(' ')].join(' '));
+  return normalize([raw.code, raw.name, raw.category, brandId, specText,
+    raw.notes.join(' '), raw.details.join(' ')].join(' '));
 }

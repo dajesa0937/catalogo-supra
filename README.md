@@ -1,26 +1,75 @@
 # Catálogo Web · Equipos Supra S.A.S.
 
-Catálogo de maquinaria agrícola y equipos que se alimenta **directamente de la
-lista de precios oficial en PDF**. Reemplazar ese archivo actualiza todo el
-catálogo: productos, categorías, fichas técnicas, imágenes y precios. No hay que
-tocar ni una línea de código.
+Catálogo de maquinaria agrícola y equipos que se construye **directamente desde
+la lista de precios oficial en PDF**. Reemplazar ese archivo actualiza todo:
+productos, categorías, fichas técnicas e imágenes. No hay que tocar ni una línea
+de código.
 
 HTML5 · CSS3 · JavaScript ES6 · PDF.js · IndexedDB. Sin frameworks, sin
 compilación y sin servidor: se publica tal cual en GitHub Pages.
+
+> **El catálogo está publicado en modo presentación.** Se ve la ficha técnica
+> completa de cada referencia, pero **no los precios**, y no hay botón de
+> WhatsApp. Es deliberado: la página la enseña un distribuidor a *su* cliente.
+> Ver [Los dos modos](#los-dos-modos).
 
 ---
 
 ## Índice
 
-1. [Puesta en marcha](#puesta-en-marcha)
-2. [Actualizar la lista de precios](#actualizar-la-lista-de-precios)
-3. [Publicar en GitHub Pages](#publicar-en-github-pages)
-4. [Cómo funciona](#cómo-funciona)
-5. [Estructura del proyecto](#estructura-del-proyecto)
-6. [Personalización](#personalización)
-7. [Pruebas](#pruebas)
-8. [Decisiones técnicas](#decisiones-técnicas)
-9. [Resolución de problemas](#resolución-de-problemas)
+1. [Los dos modos](#los-dos-modos)
+2. [Puesta en marcha](#puesta-en-marcha)
+3. [Actualizar el catálogo](#actualizar-el-catálogo)
+4. [Publicar en GitHub Pages](#publicar-en-github-pages)
+5. [Cómo funciona](#cómo-funciona)
+6. [Estructura del proyecto](#estructura-del-proyecto)
+7. [Personalización](#personalización)
+8. [Pruebas](#pruebas)
+9. [Decisiones técnicas](#decisiones-técnicas)
+10. [Resolución de problemas](#resolución-de-problemas)
+
+---
+
+## Los dos modos
+
+Todo el comportamiento cuelga de **una sola línea** en `config/app.config.js`:
+
+```js
+export const CATALOG_MODE = 'presentacion';   // o 'precios'
+```
+
+| | `presentacion` *(actual)* | `precios` |
+|---|---|---|
+| Para quién | El cliente final del distribuidor | Mostrador y distribuidores |
+| Precios | **No se muestran.** "Bajo consulta" | P.V.D y sin IVA, con conmutador |
+| Orden por precio | No se ofrece | Sí |
+| Botón de WhatsApp | **No aparece** | Sí, con mensaje por referencia |
+| Contacto en el pie | Solo la marca | Dirección, teléfono, correo |
+| Exportar CSV/JSON | Sin columnas de precio | Con precios |
+| De dónde salen los datos | `data/catalogo.json`, ya generado | Del PDF, en el navegador |
+| El PDF viaja al sitio | **No** | Sí |
+
+### Por qué el modo presentación no publica el PDF
+
+Quitar los precios de la pantalla no serviría de nada si el PDF siguiera
+colgado en `https://…/data/lista-precios.pdf`: cualquiera que escribiera esa
+dirección se descargaría la lista de distribución completa. Y ahora que el
+catálogo circula entre los clientes de los distribuidores, esa dirección la
+puede probar mucha más gente.
+
+Por eso, en este modo el PDF se lee **una sola vez, en tu computador**, con
+`npm run generar`, y al sitio solo sube el resultado: fichas técnicas y
+fotografías, sin ninguna cifra. El archivo con los precios nunca sale de tu
+equipo — `.gitignore` se encarga de que no se suba ni por descuido.
+
+De paso, el catálogo publicado carga bastante más rápido: deja de descargar el
+PDF y la librería que lo interpreta, que entre los dos pesan 1,7 MB.
+
+### Por qué no hay botón de WhatsApp
+
+La página la usan los distribuidores con **sus propios clientes**. Un enlace
+directo a Equipos Supra en esa pantalla sería una invitación a saltarse a quien
+está haciendo la venta. En modo `precios` el botón vuelve solo.
 
 ---
 
@@ -41,30 +90,63 @@ npx serve .
 # Extensión "Live Server" → clic derecho en index.html → Open with Live Server
 ```
 
-Abrir <http://localhost:8000>.
+Abrir <http://localhost:8000>. Abre en medio segundo: los datos ya vienen
+generados.
 
-La **primera carga** tarda unos segundos: es cuando se lee el PDF completo. Las
-siguientes abren en menos de medio segundo porque el catálogo ya está en la
-caché del navegador.
+Para las pruebas y para generar el catálogo hace falta Node:
+
+```bash
+npm install     # pdfjs-dist y playwright
+```
 
 ---
 
-## Actualizar la lista de precios
+## Actualizar el catálogo
 
-Este es todo el mantenimiento del catálogo:
+Este es todo el mantenimiento. Son tres pasos, y el segundo es el nuevo:
 
-1. Reemplazar `data/lista-precios.pdf` por la lista nueva, **con ese mismo
-   nombre**.
-2. Subir el cambio (`git add`, `git commit`, `git push`).
+```bash
+# 1 · Reemplazar la lista, con ESE MISMO nombre
+#     data/lista-precios.pdf
 
-Cada visitante verá el catálogo actualizado la próxima vez que abra la página.
-El sistema detecta el cambio comparando el tamaño y la fecha del archivo, vuelve
-a leerlo y renueva la caché por su cuenta.
+# 2 · Regenerar el catálogo publicable
+npm run generar
 
-> **Antes de subir**, conviene abrir el catálogo en local y comprobar dos cosas:
-> que el número de productos cuadra con la lista, y que no aparece el aviso
-> amarillo de filas no reconocidas. Si aparece, ver
-> [Resolución de problemas](#resolución-de-problemas).
+# 3 · Subir el cambio
+git add . && git commit -m "Lista de agosto" && git push
+```
+
+`npm run generar` lee el PDF, extrae los 80 productos y sus 80 fotografías, y
+escribe `data/catalogo.json` y `assets/products/`. Termina con un informe:
+
+```
+  Productos:   80
+  Categorías:  18
+  Fotografías: 80
+  Precios:     NO se publican
+```
+
+> **Antes de subir**, mirar ese informe. Que el número de productos cuadre con
+> la lista y que no aparezca el bloque `ATENCIÓN · el lector no pudo completar
+> N fila(s)`. Si aparece, ver
+> [Resolución de problemas](#resolución-de-problemas). Y abrir el catálogo en
+> local para ver dos o tres fichas.
+
+### Qué ocurre con lo que ya no está en la lista nueva
+
+No hay nada que borrar a mano. El catálogo se reconstruye entero desde el PDF,
+así que las **referencias retiradas** desaparecen solas y sus fotografías se
+borran de `assets/products/` en la propia generación.
+
+Quedan dos cabos sueltos en el navegador de cada vendedor, y el catálogo los
+resuelve por su cuenta:
+
+- Los **favoritos** de referencias retiradas se descartan al arrancar y se
+  avisa con una notificación. Sin eso, el contador diría "3 favoritos" y solo
+  aparecerían dos, y el vendedor pensaría que la aplicación perdió algo suyo.
+- Un **enlace compartido** (por WhatsApp, por ejemplo) a una referencia que ya
+  no existe muestra un aviso con el código y devuelve al catálogo, en lugar de
+  redirigir en silencio.
 
 ### Qué formato debe tener el PDF
 
@@ -107,9 +189,62 @@ En GitHub: **Settings → Pages → Source: Deploy from a branch → main / (roo
 El archivo `.nojekyll` de la raíz ya está incluido: sin él, GitHub ignoraría
 carpetas y el catálogo no encontraría sus recursos.
 
+### Si el PDF ya se subió alguna vez
+
+`.gitignore` impide subirlo de aquí en adelante, pero **no retira lo que Git ya
+está rastreando**. Si en algún momento se publicó, hay que sacarlo a mano:
+
+```bash
+git rm --cached data/*.pdf
+git commit -m "El PDF de precios deja de publicarse"
+git push
+```
+
+Esto no borra el archivo de tu computador: solo deja de subirlo. Para
+comprobarlo, `git ls-files data/` no debe devolver ningún `.pdf`.
+
+> Un aviso honesto: el historial de Git conserva las versiones ya subidas, así
+> que quien sepa buscarlas puede recuperarlas. Si eso importa, la vía limpia es
+> crear un repositorio nuevo. La prueba
+> `La lista de precios en PDF no se publica` vigila el estado actual.
+
 ---
 
 ## Cómo funciona
+
+Hay dos recorridos, uno por modo. El lector del PDF es **el mismo** en los dos;
+lo único que cambia es *dónde* se ejecuta.
+
+### Modo presentación · el que está publicado
+
+```
+EN TU COMPUTADOR                         │  EN EL SITIO PUBLICADO
+                                         │
+data/lista-precios.pdf                   │
+        │                                │
+        │  npm run generar               │
+        ▼                                │
+   Chromium sin ventana                  │
+   PDF.js ─► texto por coordenadas       │
+          └► imágenes por recorte        │
+        │                                │
+        ▼                                │
+   data/catalogo.json  ────── git push ──┼──►  fetch  ──►  catálogo en pantalla
+   assets/products/*.webp                │                    (< 500 ms)
+                                         │
+   (el PDF se queda aquí)                │
+```
+
+**Cada visita.** Se descarga un JSON de 89 KB y las fotografías que se vean en
+pantalla. Ni PDF.js ni el PDF: medio segundo, y no hay nada que cachear a mano.
+
+**Por qué un navegador para generar.** Recortar las fotografías necesita un
+`canvas`, y un `canvas` necesita un navegador. En vez de mantener un segundo
+extractor para Node —que se desincronizaría del bueno a la primera— se ejecuta
+el pipeline **real** dentro de un Chromium sin ventana. Lo que se genera es
+exactamente lo que vería un visitante, con el mismo código.
+
+### Modo precios · lectura en el navegador
 
 ```
 data/lista-precios.pdf
@@ -135,6 +270,10 @@ ejecutar el lector. Medio segundo.
 **Cuando el PDF cambia.** La huella no coincide, se reparsea y se renueva la
 caché. El usuario no tiene que hacer nada.
 
+En modo presentación, si `data/catalogo.json` no existe todavía, el catálogo
+**cae a leer el PDF** y lo avisa por consola. Así el proyecto sigue siendo
+utilizable en local aunque falte el paso de generación.
+
 ---
 
 ## Estructura del proyecto
@@ -145,10 +284,16 @@ catalogo-supra/
 ├── .nojekyll                    Necesario para GitHub Pages
 │
 ├── data/
-│   └── lista-precios.pdf        ← EL ÚNICO ARCHIVO QUE HAY QUE REEMPLAZAR
+│   ├── lista-precios.pdf        ← EL ÚNICO ARCHIVO QUE HAY QUE REEMPLAZAR
+│   │                              (NO se publica: está en .gitignore)
+│   └── catalogo.json            Generado por `npm run generar`. No editar
+│
+├── tools/                       Utilidades de generación, NO parte del sitio
+│   ├── generar-catalogo.mjs     `npm run generar`
+│   └── bake.html                Página auxiliar que ejecuta el lector real
 │
 ├── config/                      Todo lo configurable, sin lógica
-│   ├── app.config.js            Rutas, contacto, caché, ajustes de interfaz
+│   ├── app.config.js            MODO, rutas, contacto, caché, interfaz
 │   ├── parser.config.js         Columnas, umbrales y patrones del lector
 │   ├── taxonomy.config.js       Marcas, iconos y correcciones de texto
 │   └── overrides.json           Correcciones por producto (opcional)
@@ -156,7 +301,7 @@ catalogo-supra/
 ├── assets/
 │   ├── brand/                   Logotipos oficiales y favicon
 │   ├── icons/sprite.svg         Iconografía propia, sin librerías
-│   └── products/                Fotografías en alta resolución (opcional)
+│   └── products/                Fotografías + manifest.json (generado)
 │
 ├── vendor/pdfjs/                PDF.js vendorizado (sin CDN)
 │
@@ -202,6 +347,57 @@ lista de precios:
 
 Si llega el manual de identidad corporativa, basta con actualizar este archivo.
 
+### Marcar una referencia como agotada
+
+`config/overrides.json`, campo `stock`. El producto **no desaparece**: se queda
+en el catálogo con distintivo, la fotografía atenuada y un aviso en la ficha.
+(En modo `precios`, además, el mensaje de WhatsApp se adapta a preguntar por la
+reposición.)
+
+> Este archivo lo lee el navegador en cada visita, así que un cambio aquí
+> **no necesita `npm run generar`**: basta con subirlo. Es la vía rápida para
+> marcar un agotado el mismo día.
+
+```json
+{
+  "products": {
+    "SPS-260": { "stock": "agotado" },
+    "SCS-5800": { "stock": "bajo-pedido" }
+  }
+}
+```
+
+Es deliberado que siga visible. Un vendedor necesita poder buscar la referencia
+que el cliente le está pidiendo y responderle que no hay existencias; si la
+referencia se hubiera esfumado del catálogo, parecería que nunca existió y la
+conversación se complica en vez de resolverse.
+
+Para retirarla de verdad está `"hidden": true`, pero eso es para referencias
+descatalogadas, no para faltantes de inventario. Los estados disponibles se
+definen en `config/taxonomy.config.js` y añadir uno nuevo es una entrada más.
+
+### Corregir un precio sin esperar a la lista siguiente
+
+> Solo tiene efecto en modo `precios`. En presentación no se muestra ningún
+> precio, así que una sobrescritura aquí queda guardada pero no se ve.
+
+Mismo archivo, campos `priceNet` y `priceGross`, en pesos y sin puntos:
+
+```json
+{
+  "products": {
+    "SGE-210": { "priceNet": 395000, "priceGross": 469900 }
+  }
+}
+```
+
+> **El PDF sigue siendo la fuente oficial.** Un precio puesto aquí y no
+> corregido en la lista oficial deja las dos fuentes en desacuerdo.
+> Úsalo como puente hasta la lista siguiente,
+> y vacía la sobrescritura cuando el PDF nuevo ya traiga el precio corregido.
+> Las exportaciones a JSON y CSV marcan qué precios se ajustaron y conservan el
+> valor original del PDF, para poder auditarlo.
+
 ### Corregir o enriquecer un producto
 
 `config/overrides.json` permite ajustar cualquier referencia por su código, sin
@@ -226,18 +422,20 @@ El propio archivo lleva documentados todos los campos disponibles.
 ### Fotografías en alta resolución
 
 Las imágenes incrustadas en el PDF miden entre 200 y 360 px: suficiente para las
-tarjetas, justo para el zoom. Para usar las fotografías originales:
+tarjetas, justo para el zoom. Para usar una fotografía propia:
 
-1. Copiar los archivos en `assets/products/` con el nombre del código de
-   producto: `SPS-260.webp`, `SGE-210.webp`…
-2. Añadir los códigos a `assets/products/manifest.json`:
+1. Copiarla en `assets/products/` con **el código como nombre** y una extensión
+   que **no** sea `.webp`: `SPS-260.jpg`, `SGE-210.png`.
+2. Ejecutar `npm run generar`.
 
-```json
-{ "codes": ["SPS-260", "SGE-210"] }
-```
+Eso es todo: el manifiesto se escribe solo y la fotografía propia tiene
+prioridad sobre el recorte del PDF. El informe lo confirma
+(`Fotografías: 80 (2 propia(s), respetada(s))`).
 
-El catálogo las usará automáticamente donde existan y seguirá usando las del PDF
-donde no. Mientras la lista esté vacía no se hace ni una petición de más.
+`.webp` está reservado para lo que extrae el lector — esos archivos se borran y
+se rehacen en cada generación —, y por eso las tuyas deben llevar otra
+extensión. Si el código lleva una barra (`SPS-260A/210`), sustitúyela por un
+guion bajo en el nombre del archivo: `SPS-260A_210.jpg`.
 
 ### Añadir una línea de producto
 
@@ -265,7 +463,18 @@ exactos del PDF.
 `e2e.test.mjs` levanta un servidor estático equivalente a GitHub Pages, abre el
 catálogo en Chromium y verifica la extracción de imágenes, la caché, la
 búsqueda, los filtros, el orden, la ficha de producto, los favoritos, ambos
-temas, el diseño en móvil y el contraste WCAG 2.1 AA.
+temas, el diseño en móvil y el contraste WCAG 2.1 AA. **Se adapta al modo**: las
+comprobaciones que no aplican salen en gris (`·`) en lugar de en rojo.
+
+Cuatro comprobaciones son la razón de ser del modo presentación y aparecen bajo
+el epígrafe **Filtraciones**. Si alguna se pone en rojo, el catálogo no se sube:
+
+| Comprobación | Qué significaría fallar |
+|---|---|
+| La lista de precios en PDF no se publica | La lista completa está a un clic desde el sitio |
+| No aparece ningún teléfono de Equipos Supra | El distribuidor enseña a su cliente el teléfono del proveedor |
+| No aparece ningún enlace de WhatsApp | Lo mismo, por otra vía |
+| No se pinta ningún precio en la cuadrícula | Se filtró un precio a la pantalla |
 
 Varias comprobaciones son **pruebas de regresión**: fijan defectos concretos ya
 corregidos para que no vuelvan. En particular, que la fotografía nunca exceda su
@@ -335,17 +544,28 @@ espera, todo sin una sola recarga de página.
 
 ## Resolución de problemas
 
-**Aparece un aviso amarillo con filas no reconocidas.**
+**`npm run generar` avisa de filas no reconocidas.**
 El lector encontró un bloque al que le falta el código, el precio o la imagen.
-Desplegando el aviso se ve la página y el producto exactos. Suele deberse a un
-cambio de maquetado en el PDF; se corrige ajustando los umbrales de
+El informe dice la página y el producto exactos. Suele deberse a un cambio de
+maquetado en el PDF; se corrige ajustando los umbrales de
 `config/parser.config.js` o, si es un caso aislado, desde `overrides.json`.
 
-**El catálogo no se actualiza tras subir un PDF nuevo.**
+**`npm run generar` saca muchos menos productos de los que tiene la lista.**
+Casi siempre el PDF está **rasterizado**: sus páginas son fotografías de texto,
+no texto, y no hay nada que leer en ellas. Ocurre cuando el archivo se hizo con
+*Imprimir → Microsoft Print to PDF*. La solución está en cómo se exporta desde
+Word: **Archivo → Guardar como → PDF**, no *Imprimir*. Para comprobarlo,
+abrir el PDF y tratar de seleccionar una palabra con el cursor: si no se puede,
+está rasterizado.
+
+**Subí un PDF nuevo y el catálogo no cambió.**
+Falta el paso 2: `npm run generar`. En modo presentación el sitio no lee el PDF
+—por eso los precios no están publicados—, así que reemplazar el archivo no
+basta por sí solo.
+
+**El catálogo no se actualiza tras subir un catálogo nuevo.**
 El navegador está sirviendo la copia guardada. Forzar una recarga completa
-(`Ctrl+F5`) o borrar los datos del sitio. Si el servidor no envía la cabecera
-`Last-Modified`, la detección de cambios se apoya solo en el tamaño del archivo;
-GitHub Pages sí la envía.
+(`Ctrl+F5`) o borrar los datos del sitio.
 
 **La página se queda en blanco al abrirla con doble clic.**
 El proyecto necesita servirse por HTTP; `file://` bloquea los módulos de

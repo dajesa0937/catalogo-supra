@@ -4,14 +4,57 @@
  * @module config/app
  */
 
+/**
+ * Modo del catálogo. Es el interruptor que decide qué se publica.
+ *
+ *   'presentacion' — Pieza comercial para que los distribuidores la enseñen a
+ *                    SUS clientes. Sin precios y sin vías de contacto directo:
+ *                    un botón hacia Equipos Supra dejaría al distribuidor fuera
+ *                    de su propia venta. La fuente se hornea en local
+ *                    (`npm run generar`) y el PDF NO se publica.
+ *
+ *   'precios'      — Catálogo interno con los dos precios y contacto directo.
+ *                    Lee el PDF en el navegador de cada visitante, lo que
+ *                    obliga a publicar el PDF junto al sitio.
+ *
+ * Cambiar esta palabra reconfigura el catálogo entero. No hay que tocar nada más.
+ */
+export const CATALOG_MODE = 'presentacion';
+
+/** Qué habilita cada modo. */
+const MODES = Object.freeze({
+  presentacion: Object.freeze({
+    showPrices: false,
+    showDirectContact: false,
+    exportPrices: false,
+    /** El PDF no se publica: los datos vienen ya horneados. */
+    source: 'baked'
+  }),
+  precios: Object.freeze({
+    showPrices: true,
+    showDirectContact: true,
+    exportPrices: true,
+    source: 'pdf'
+  })
+});
+
+/** Capacidades activas, derivadas del modo. */
+export const MODE = MODES[CATALOG_MODE] ?? MODES.precios;
+
 export const APP_CONFIG = Object.freeze({
   /** Nombre comercial mostrado en la interfaz. */
   companyName: 'Equipos Supra S.A.S.',
   shortName: 'Supra',
   tagline: 'Más que maquinaria, un compromiso con quienes hacen grande el campo',
 
-  /** Ruta del PDF fuente. Reemplazar ESTE archivo actualiza todo el catálogo. */
+  /** Ruta del PDF fuente. Solo se usa en modo 'precios' o al hornear en local. */
   pdfUrl: 'data/lista-precios.pdf',
+
+  /**
+   * Catálogo ya horneado. Es lo que se publica en modo 'presentacion': los
+   * productos y sus fichas, sin precios y sin el PDF de origen.
+   */
+  bakedUrl: 'data/catalogo.json',
 
   /** Ruta de la librería PDF.js (versión vendorizada, sin CDN). */
   pdfWorkerUrl: 'vendor/pdfjs/pdf.worker.min.mjs',
@@ -39,7 +82,7 @@ export const APP_CONFIG = Object.freeze({
     dbName: 'supra-catalogo',
     dbVersion: 1,
     /** Fuerza un reparseo aunque el PDF no cambie (subir al cambiar el parser). */
-    schemaVersion: 4
+    schemaVersion: 5
   }),
 
   /** Claves de LocalStorage (solo preferencias de usuario, nunca datos). */

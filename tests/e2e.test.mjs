@@ -11,9 +11,12 @@
 
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
+import { exec } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+
+import { CATALOG_MODE, MODE } from '../config/app.config.js';
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 8123;
@@ -28,10 +31,22 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.webp': 'image/webp',
   '.pdf': 'application/pdf'
 };
 
 let failures = 0;
+
+/**
+ * Marca una comprobación como no aplicable al modo actual. No cuenta como
+ * fallo: en modo presentación no hay precios que ordenar ni WhatsApp al que
+ * escribir, y fingir que sí los hay solo produciría ruido rojo.
+ * @param {string} label
+ * @param {string} motivo
+ */
+function skip(label, motivo) {
+  console.log(`  [90m·[0m ${label}  [90m(no aplica: ${motivo})[0m`);
+}
 
 /**
  * @param {string} label
@@ -94,7 +109,13 @@ const consoleErrors = [];
 page.on('console', (message) => { if (message.type() === 'error') consoleErrors.push(message.text()); });
 page.on('pageerror', (error) => consoleErrors.push(String(error)));
 
-console.log('\nPrimera carga · se lee el PDF completo\n');
+console.log(`\nModo del catálogo: ${CATALOG_MODE}`
+  + ` · precios ${MODE.showPrices ? 'visibles' : 'ocultos'}`
+  + ` · fuente ${MODE.source}`);
+
+console.log(MODE.source === 'baked'
+  ? '\nPrimera carga · se sirve el catálogo ya generado\n'
+  : '\nPrimera carga · se lee el PDF completo\n');
 const startedAt = Date.now();
 await page.goto(BASE, { waitUntil: 'domcontentloaded' });
 await page.waitForSelector('.card', { timeout: 90000 });
@@ -151,14 +172,24 @@ await page.click('[data-view-mode="grid"]');
 await page.waitForTimeout(400);
 
 // --- Caché ----------------------------------------------------------------
-console.log('\nSegunda carga · debe servirse de IndexedDB\n');
+console.log(MODE.source === 'baked'
+  ? '\nSegunda carga\n'
+  : '\nSegunda carga · debe servirse de IndexedDB\n');
 const warmStart = Date.now();
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.waitForSelector('.card', { timeout: 30000 });
 const warmMs = Date.now() - warmStart;
 check('Segunda carga por debajo de 3 s', warmMs < 3000, `→ ${warmMs} ms`);
-check('Es al menos 2× más rápida que la primera', warmMs * 2 < coldMs,
-  `→ ${(coldMs / warmMs).toFixed(1)}× más rápida`);
+
+// La caché existe para no repetir la lectura del PDF, que es lo caro. Cuando el
+// catálogo ya viene generado no hay nada caro que evitar: la primera carga ya
+// es prácticamente instantánea, así que exigir un 2× no mide nada.
+if (MODE.source === 'baked') {
+  skip('Es al menos 2× más rápida que la primera', 'la primera ya no lee el PDF');
+} else {
+  check('Es al menos 2× más rápida que la primera', warmMs * 2 < coldMs,
+    `→ ${(coldMs / warmMs).toFixed(1)}× más rápida`);
+}
 
 // --- Búsqueda -------------------------------------------------------------
 console.log('\nInteracción\n');
@@ -193,12 +224,36 @@ check('Filtrar por categoría cambia la URL', categoryFiltered.hash.startsWith('
   `→ ${categoryFiltered.hash}`);
 check('El filtro activo se muestra como píldora', categoryFiltered.pill > 0);
 
-await page.selectOption('#sort-select', 'price-asc');
-await page.waitForTimeout(300);
-const ascending = await page.evaluate(() => [...document.querySelectorAll('.price__value')]
-  .map((node) => Number(node.textContent.replace(/[^\d]/g, ''))));
-check('Ordenar por precio ascendente funciona',
-  ascending.every((value, index) => index === 0 || ascending[index - 1] <= value));
+if (MODE.showPrices) {
+  await page.selectOption('#sort-select', 'price-asc');
+  await page.waitForTimeout(300);
+  const ascending = await page.evaluate(() => [...document.querySelectorAll('.price__value')]
+    .map((node) => Number(node.textContent.replace(/[^\d]/g, ''))));
+  check('Ordenar por precio ascendente funciona',
+    ascending.every((value, index) => index === 0 || ascending[index - 1] <= value));
+} else {
+  // Sin precios, el orden por precio no debe ni ofrecerse: una opción que no
+  // ordena nada es peor que una opción que falta.
+  const opciones = await page.evaluate(() =>
+    [...document.querySelectorAll('#sort-select option')].map((option) => option.value));
+  check('Sin precios no se ofrece ordenar por precio',
+    opciones.length > 0 && !opciones.some((value) => value.startsWith('price-')),
+    `→ ${opciones.join(', ')}`);
+
+  await page.selectOption('#sort-select', 'name-asc');
+  await page.waitForTimeout(300);
+  const alfabetico = await page.evaluate(() =>
+    [...document.querySelectorAll('.card__name')].map((node) => node.textContent.trim()));
+  // Mismo comparador que usa la aplicación: con `numeric` "Bomba 5L" va antes
+  // que "Bomba 16L", que es lo que espera quien busca en un mostrador, y no
+  // lo que diría una comparación de cadenas a secas.
+  const collator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' });
+  const desorden = alfabetico.findIndex((name, index) =>
+    index > 0 && collator.compare(alfabetico[index - 1], name) > 0);
+  check('Ordenar alfabéticamente funciona',
+    alfabetico.length > 0 && desorden === -1,
+    desorden === -1 ? `→ ${alfabetico.length} productos` : `→ "${alfabetico[desorden - 1]}" antes que "${alfabetico[desorden]}"`);
+}
 
 // --- Ficha de producto ----------------------------------------------------
 await page.goto(`${BASE}#/`, { waitUntil: 'domcontentloaded' });
@@ -211,13 +266,32 @@ const detail = await page.evaluate(() => ({
   code: document.querySelector('.detail__code')?.textContent ?? '',
   specs: document.querySelectorAll('.specs__row').length,
   prices: document.querySelectorAll('.detail__price').length,
+  enquire: document.querySelectorAll('.detail__enquire').length,
+  whatsapp: document.querySelectorAll('a[href*="wa.me"], a[href*="whatsapp"]').length,
   related: document.querySelectorAll('.related__item').length,
   hash: location.hash
 }));
 check('La ficha abre con su propia URL', detail.hash.startsWith('#/producto/'), `→ ${detail.hash}`);
 check('La ficha muestra la ficha técnica completa', detail.specs > 0, `→ ${detail.specs} filas`);
-check('La ficha muestra los dos precios', detail.prices === 2);
 check('La ficha muestra productos relacionados', detail.related > 0, `→ ${detail.related}`);
+
+if (MODE.showPrices) {
+  check('La ficha muestra los dos precios', detail.prices === 2);
+} else {
+  // Lo importante no es solo que no se vea el precio: es que en su lugar quede
+  // algo dicho. Una ficha con un hueco parece rota; "bajo consulta" es una
+  // respuesta, y además devuelve la conversación al distribuidor.
+  check('Sin precios, la ficha no muestra ninguna cifra', detail.prices === 0);
+  check('Sin precios, la ficha remite a consultar', detail.enquire > 0);
+}
+
+// Regla del modo presentación, no una preferencia estética: el catálogo lo
+// enseña un distribuidor a su propio cliente. Un enlace directo a Equipos Supra
+// en esa pantalla es una invitación a saltarse a quien está haciendo la venta.
+if (!MODE.showDirectContact) {
+  check('La ficha no ofrece contacto directo con Equipos Supra', detail.whatsapp === 0,
+    `→ ${detail.whatsapp} enlace(s)`);
+}
 
 // Regresión: la foto se anclaba al centro de una columna estirada a la altura
 // de la ficha técnica y acababa media pantalla más abajo; y las
@@ -265,6 +339,39 @@ check('Marcar favorito actualiza el contador', favCount === '1', `→ ${favCount
 await page.reload({ waitUntil: 'domcontentloaded' });
 await page.waitForSelector('.card');
 check('Los favoritos sobreviven a la recarga', await page.textContent('#favorites-count') === '1');
+
+// Regresión: al publicar una lista de precios nueva, los productos retirados
+// desaparecen del catálogo pero sus códigos siguen guardados en el navegador.
+// El contador decía "2 favoritos" con una sola tarjeta a la vista.
+await page.evaluate(() => localStorage.setItem(
+  'supra:favorites', JSON.stringify(['SPS-260', 'REFERENCIA-DESCATALOGADA'])));
+await page.goto(`${BASE}#/favoritos`, { waitUntil: 'domcontentloaded' });
+await page.waitForSelector('.card', { timeout: 30000 });
+await page.waitForTimeout(600);
+const favoritos = await page.evaluate(() => ({
+  cabecera: document.querySelector('#favorites-count')?.textContent,
+  lateral: [...document.querySelectorAll('#category-nav .sidebar__item')]
+    .find((n) => n.dataset.category === '__favorites__')?.querySelector('.sidebar__count')?.textContent,
+  tarjetas: document.querySelectorAll('.card').length
+}));
+check('Los favoritos descatalogados dejan de contarse',
+  favoritos.cabecera === '1' && favoritos.lateral === '1' && favoritos.tarjetas === 1,
+  `→ cabecera ${favoritos.cabecera}, lateral ${favoritos.lateral}, ${favoritos.tarjetas} tarjeta(s)`);
+
+// Regresión: un enlace compartido a una referencia retirada devolvía al
+// catálogo sin decir por qué.
+await page.goto(`${BASE}#/producto/REFERENCIA-DESCATALOGADA`, { waitUntil: 'domcontentloaded' });
+await page.waitForSelector('.card', { timeout: 30000 });
+await page.waitForTimeout(700);
+const enlaceRoto = await page.evaluate(() => ({
+  hash: location.hash,
+  aviso: document.querySelector('.toast')?.textContent ?? ''
+}));
+check('Un enlace a una referencia retirada avisa y vuelve al catálogo',
+  enlaceRoto.hash === '#/' && /ya no está/i.test(enlaceRoto.aviso),
+  `→ "${enlaceRoto.aviso.trim()}"`);
+
+await page.evaluate(() => localStorage.setItem('supra:favorites', JSON.stringify(['SPS-260'])));
 
 // --- Tema -----------------------------------------------------------------
 await page.click('#theme-toggle');
@@ -381,6 +488,7 @@ async function auditContrast(theme) {
       ['Resumen de tarjeta', '.card__summary'],
       ['Precio', '.price__value'],
       ['Etiqueta de precio', '.price__label'],
+      ['Precio bajo consulta', '.price__enquire'],
       ['Código de producto', '.card__code'],
       ['Categoría del lateral', '.sidebar__item'],
       ['Recuento del lateral', '.sidebar__count'],
@@ -420,6 +528,114 @@ for (const theme of ['light', 'dark']) {
 }
 
 await page.evaluate(() => { delete document.documentElement.dataset.theme; });
+
+// --- Sobrescrituras: disponibilidad y precios -----------------------------
+console.log('\nSobrescrituras declarativas\n');
+
+// Se intercepta `overrides.json` en vez de tocar el archivo del proyecto: la
+// prueba no debe dejar rastro en el repositorio.
+const contextoOverrides = await browser.newContext({ viewport: { width: 1440, height: 960 } });
+await contextoOverrides.route('**/config/overrides.json', (route) => route.fulfill({
+  contentType: 'application/json',
+  body: JSON.stringify({ products: {
+    'SPS-260': { stock: 'agotado' },
+    'SGE-210': { priceNet: 395000, priceGross: 469900 },
+    'SPS-25C': { stock: 'valor-invalido' }
+  } })
+}));
+const paginaOverrides = await contextoOverrides.newPage();
+await paginaOverrides.goto(BASE, { waitUntil: 'domcontentloaded' });
+await paginaOverrides.waitForSelector('.card', { timeout: 90000 });
+await paginaOverrides.waitForTimeout(1200);
+
+const sobrescrito = await paginaOverrides.evaluate(() => ({
+  total: document.querySelectorAll('.card').length,
+  agotadoSigueVisible: !!document.querySelector('[data-code="SPS-260"]'),
+  distintivo: document.querySelector('[data-code="SPS-260"] .stock-badge')?.textContent,
+  atenuada: getComputedStyle(document.querySelector('[data-code="SPS-260"] .card__image')).filter !== 'none',
+  precio: document.querySelector('[data-code="SGE-210"] .price__value')?.textContent.replace(/[^\d]/g, ''),
+  invalidoIgnorado: !document.querySelector('[data-code="SPS-25C"] .stock-badge')
+}));
+
+check('Una referencia agotada NO desaparece del catálogo',
+  sobrescrito.total === 80 && sobrescrito.agotadoSigueVisible, `→ ${sobrescrito.total} productos`);
+check('La referencia agotada se distingue', sobrescrito.distintivo === 'Agotado' && sobrescrito.atenuada,
+  `→ "${sobrescrito.distintivo}"`);
+check('Un estado de stock inválido se ignora sin romper nada', sobrescrito.invalidoIgnorado);
+
+if (MODE.showPrices) {
+  check('Un precio corregido a mano pisa al del PDF', sobrescrito.precio === '469900',
+    `→ ${sobrescrito.precio} (el PDF dice 479900)`);
+} else {
+  // La sobrescritura de precio sigue siendo válida en el archivo; simplemente
+  // no tiene dónde verse. Lo que sí debe comprobarse es que no se cuele.
+  check('Un precio sobrescrito tampoco se muestra', sobrescrito.precio === undefined);
+}
+
+const fichaAgotado = await paginaOverrides.evaluate(async () => {
+  location.hash = '#/producto/SPS-260';
+  await new Promise((r) => setTimeout(r, 900));
+  const enlace = document.querySelector('.detail__actions a[href*="wa.me"]');
+  return {
+    aviso: !!document.querySelector('.detail__note--danger'),
+    whatsapp: enlace ? decodeURIComponent(new URL(enlace.href).searchParams.get('text') ?? '') : ''
+  };
+});
+
+check('La ficha del agotado avisa de la falta de existencias', fichaAgotado.aviso);
+
+if (MODE.showDirectContact) {
+  check('El mensaje de WhatsApp se adapta al agotado',
+    /cu[áa]ndo tendr[áa]n/i.test(fichaAgotado.whatsapp),
+    `→ "${fichaAgotado.whatsapp.slice(0, 46)}…"`);
+} else {
+  check('El agotado tampoco abre una vía directa a Equipos Supra',
+    fichaAgotado.whatsapp === '');
+}
+
+await contextoOverrides.close();
+
+// --- Lo que NO debe publicarse --------------------------------------------
+// Estas dos comprobaciones son la razón de ser del modo presentación. Si
+// alguna se pone en rojo, el catálogo no se sube: la primera significaría que
+// la lista de precios completa está a un clic desde el mismo sitio, y la
+// segunda, que el distribuidor está enseñando a su cliente el teléfono del
+// proveedor.
+if (MODE.source === 'baked') {
+  console.log('\nFiltraciones\n');
+
+  // El PDF sí está en el disco (de ahí sale el catálogo), pero no debe llegar
+  // al repositorio: lo que se publica es lo que Git rastrea. Por eso esto se
+  // comprueba contra Git y no contra el servidor de pruebas.
+  const rastreados = await new Promise((resolve) => {
+    exec('git ls-files data/', { cwd: ROOT }, (error, stdout) =>
+      resolve(error ? null : stdout.split('\n').filter(Boolean)));
+  });
+  if (rastreados === null) {
+    skip('La lista de precios en PDF no se publica', 'no hay repositorio Git aquí');
+  } else {
+    const pdfs = rastreados.filter((file) => file.toLowerCase().endsWith('.pdf'));
+    check('La lista de precios en PDF no se publica', pdfs.length === 0,
+      pdfs.length ? `→ Git rastrea ${pdfs.join(', ')}` : '');
+  }
+
+  await page.goto(`${BASE}#/`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.card', { timeout: 30000 });
+  await page.waitForTimeout(400);
+
+  const rastro = await page.evaluate(() => {
+    const texto = document.body.innerText;
+    const enlaces = [...document.querySelectorAll('a[href]')].map((a) => a.href).join(' ');
+    return {
+      telefono: /3\s?18\s?082\s?5116|\+?57\s?3\d{2}[\s-]?\d{3}[\s-]?\d{4}/.test(`${texto} ${enlaces}`),
+      whatsapp: /wa\.me|whatsapp/i.test(enlaces),
+      cifras: document.querySelectorAll('.price__value').length
+    };
+  });
+  check('No aparece ningún teléfono de Equipos Supra', rastro.telefono === false);
+  check('No aparece ningún enlace de WhatsApp', rastro.whatsapp === false);
+  check('No se pinta ningún precio en la cuadrícula', rastro.cifras === 0);
+}
 
 // --- Consola --------------------------------------------------------------
 // Se ignoran los fallos de red hacia hosts externos: el catálogo funciona sin

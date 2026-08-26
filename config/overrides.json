@@ -1,8 +1,12 @@
 {
   "_documentacion": {
-    "que_es": "Correcciones y datos extra por código de producto, aplicados DESPUÉS de leer el PDF. Permite arreglar o enriquecer cualquier referencia sin tocar el código del parser.",
-    "cuando_usarlo": "Erratas del PDF, nombres comerciales más claros, palabras clave de búsqueda, especificaciones que la lista no trae, u ocultar una referencia descatalogada.",
+    "que_es": "Correcciones y datos extra por código de producto, aplicados DESPUÉS de leer el PDF. Permite ajustar cualquier referencia sin tocar el código del parser ni esperar a la lista de precios siguiente.",
+    "cuando_usarlo": "Referencias agotadas o bajo pedido, precios corregidos entre listas, erratas del PDF, nombres comerciales más claros, palabras clave de búsqueda, o especificaciones que la lista no trae.",
+    "importante": "El PDF sigue siendo la fuente oficial. Lo que se ponga aquí PISA al PDF en el catálogo web, así que un precio ajustado aquí y no corregido en la lista oficial deja las dos fuentes en desacuerdo. Las exportaciones a JSON y CSV marcan qué precios se ajustaron y conservan el original del PDF, para poder auditarlo.",
     "campos": {
+      "stock": "Disponibilidad: \"disponible\" | \"agotado\" | \"bajo-pedido\". El producto SIGUE en el catálogo, con distintivo. Los estados se definen en config/taxonomy.config.js.",
+      "priceNet": "Precio sin IVA, en pesos y sin puntos ni símbolos. Ejemplo: 257048",
+      "priceGross": "Precio P.V.D, mismo formato. Ejemplo: 269900",
       "name": "Sustituye el nombre comercial.",
       "category": "Reasigna la categoría (se recalcula su identificador).",
       "brandId": "Fuerza la línea de producto: supra | reload | mechanics-pro.",
@@ -10,13 +14,22 @@
       "specs": "Objeto clave/valor: añade o reemplaza filas de la ficha técnica.",
       "notes": "Lista de aclaraciones que se AÑADEN a las del PDF.",
       "keywords": "Texto extra que solo alimenta la búsqueda, no se muestra.",
-      "hidden": "true para retirar la referencia del catálogo."
+      "hidden": "true retira la referencia del catálogo por completo. Para un agotado es preferible \"stock\": \"agotado\", que lo deja visible: el vendedor necesita poder encontrarlo y decir que no hay, no que la referencia se haya esfumado."
     },
     "ejemplo": {
       "SPS-260": {
-        "keywords": "bomba pistón acero fumigar cafetal",
-        "specs": { "Garantía": "12 meses" },
-        "notes": ["Incluye manual de instalación."]
+        "stock": "agotado",
+        "keywords": "bomba pistón acero fumigar cafetal"
+      },
+      "SGE-210": {
+        "priceNet": 395000,
+        "priceGross": 469900,
+        "notes": [
+          "Precio ajustado en junio, pendiente de la lista oficial."
+        ]
+      },
+      "SCS-5800": {
+        "stock": "bajo-pedido"
       }
     }
   },

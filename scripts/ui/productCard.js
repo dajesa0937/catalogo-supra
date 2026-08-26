@@ -10,9 +10,10 @@
 
 import { el, icon } from '../core/dom.js';
 import { currency } from '../core/format.js';
+import { MODE } from '../../config/app.config.js';
 import { getImageUrl } from '../data/catalogRepository.js';
 import { isFavorite, toggleFavorite } from '../features/favorites.js';
-import { BRANDS } from '../../config/taxonomy.config.js';
+import { BRANDS, STOCK_STATES, DEFAULT_STOCK } from '../../config/taxonomy.config.js';
 import { toast } from './toast.js';
 
 /** Observador único para todas las imágenes de la retícula. */
@@ -84,9 +85,18 @@ export function productCard(product, priceMode) {
     }
   }, [icon('icon-heart')]);
 
-  const media = el('div', { class: 'card__media' }, [
+  const stock = STOCK_STATES[product.stock] ?? STOCK_STATES[DEFAULT_STOCK];
+
+  const media = el('div', {
+    class: 'card__media',
+    dataset: stock.badge ? { stock: product.stock } : {}
+  }, [
     brand && el('span', { class: 'card__brand', style: `--chip-color:${brand.color}` }, [brand.name]),
     lazyImage(product, 'card__image'),
+    // El distintivo de disponibilidad va sobre la fotografía y no junto al
+    // precio: es lo primero que hay que ver, antes de decidir si merece la pena
+    // mirar cuánto cuesta.
+    stock.badge && el('span', { class: `stock-badge stock-badge--${stock.tone}`, text: stock.label }),
     favButton
   ]);
 
@@ -98,15 +108,23 @@ export function productCard(product, priceMode) {
     product.summary && el('p', { class: 'card__summary clamp-2', text: product.summary })
   ]);
 
+  // En modo presentación el precio lo pone el distribuidor, no el catálogo:
+  // publicar el P.V.D de Supra sería fijarle el precio delante de su cliente.
+  const priceBlock = MODE.showPrices
+    ? el('div', { class: 'price' }, [
+        el('span', { class: 'price__label', text: priceMode === 'net' ? 'P.V.D sin IVA' : 'P.V.D' }),
+        el('span', { class: 'price__value', text: currency(primary) }),
+        secondary && el('span', {
+          class: 'price__alt',
+          text: priceMode === 'net' ? `${currency(secondary)} con IVA` : `${currency(secondary)} sin IVA`
+        })
+      ])
+    // En dos líneas la etiqueta se parte por donde no debe ("Precio bajo /
+    // consulta"). Cabe entera si se acorta, y "bajo consulta" ya se entiende.
+    : el('span', { class: 'price__enquire', text: 'Bajo consulta' });
+
   const footer = el('div', { class: 'card__footer' }, [
-    el('div', { class: 'price' }, [
-      el('span', { class: 'price__label', text: priceMode === 'net' ? 'P.V.D sin IVA' : 'P.V.D' }),
-      el('span', { class: 'price__value', text: currency(primary) }),
-      secondary && el('span', {
-        class: 'price__alt',
-        text: priceMode === 'net' ? `${currency(secondary)} con IVA` : `${currency(secondary)} sin IVA`
-      })
-    ]),
+    priceBlock,
     el('span', { class: 'card__cta' }, ['Ver ficha', icon('icon-arrow-right')])
   ]);
 

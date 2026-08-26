@@ -7,12 +7,12 @@
   <meta name="theme-color" content="#100F0D">
 
   <title>Catálogo · Equipos Supra S.A.S.</title>
-  <meta name="description" content="Catálogo de maquinaria agrícola y equipos de Equipos Supra S.A.S. — bombas de fumigación, desbrozadoras, motosierras, motores, motobombas e hidrolavadoras, con ficha técnica y precios de distribución.">
+  <meta name="description" content="Catálogo de maquinaria agrícola y equipos de Equipos Supra S.A.S. — bombas de fumigación, desbrozadoras, motosierras, motores, motobombas e hidrolavadoras, con ficha técnica completa de cada referencia.">
   <meta name="author" content="Equipos Supra S.A.S.">
 
   <meta property="og:type" content="website">
   <meta property="og:title" content="Catálogo · Equipos Supra S.A.S.">
-  <meta property="og:description" content="Maquinaria agrícola profesional. Referencias, fichas técnicas y precios actualizados.">
+  <meta property="og:description" content="Maquinaria agrícola profesional. Referencias, fichas técnicas y fotografías de toda la línea.">
   <meta property="og:locale" content="es_CO">
 
   <link rel="icon" href="assets/brand/favicon.svg" type="image/svg+xml">
@@ -23,7 +23,12 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700;800&family=Source+Sans+3:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
   <link rel="stylesheet" href="styles/main.css">
 
-  <link rel="preload" href="data/lista-precios.pdf" as="fetch" crossorigin>
+  <!--
+    El catálogo publicado se sirve ya generado desde data/catalogo.json
+    (ver `npm run generar`). La lista de precios en PDF no se sube al sitio,
+    así que aquí no se precarga nada de ella.
+  -->
+  <link rel="preload" href="data/catalogo.json" as="fetch" crossorigin>
 </head>
 
 <body>
@@ -36,7 +41,7 @@
       <img class="loader__logo" src="assets/brand/supra.png" alt="Equipos Supra S.A.S.">
       <p class="loader__phase">Preparando el catálogo</p>
       <div class="loader__track"><div class="loader__fill"></div></div>
-      <p class="loader__note">La primera visita lee la lista de precios oficial en PDF. Las siguientes abren al instante.</p>
+      <p class="loader__note">La primera visita descarga el catálogo completo. Las siguientes abren al instante.</p>
     </div>
   </div>
 
@@ -121,13 +126,13 @@
           <p class="muted">Más que maquinaria, un compromiso con quienes hacen grande el campo.</p>
         </div>
 
-        <div class="footer__contact">
-          <p class="label">Contacto</p>
-          <a href="https://wa.me/573180825116">WhatsApp +57 318 082 5116</a>
-          <a href="mailto:administrativo@equipossupra.com">administrativo@equipossupra.com</a>
-          <a href="https://equipossupra.com" target="_blank" rel="noopener">equipossupra.com</a>
-          <span>Calle 59 # 3A-35, Ibagué, Tolima</span>
-        </div>
+        <!--
+          Los datos de contacto directo se inyectan desde scripts/ui/app.js y
+          SOLO en modo 'precios'. En modo presentación el catálogo lo enseña un
+          distribuidor a su propio cliente: un teléfono de Equipos Supra aquí
+          sería una invitación a saltarse a quien está haciendo la venta.
+        -->
+        <div id="footer-contact" class="footer__contact" hidden></div>
 
         <div class="footer__brand">
           <p class="label">Líneas de producto</p>
@@ -145,8 +150,8 @@
     <div class="empty" style="margin:2rem">
       <p class="empty__title">Este catálogo necesita JavaScript</p>
       <p class="empty__text">
-        Los productos se leen directamente de la lista de precios oficial en PDF.
-        Activa JavaScript o escríbenos al +57 318 082 5116.
+        Las fichas de producto se arman en el navegador.
+        Actívalo y vuelve a cargar la página.
       </p>
     </div>
   </noscript>

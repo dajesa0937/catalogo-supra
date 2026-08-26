@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Horneado del catálogo</title>
+</head>
+<body>
+  <!--
+    Página auxiliar de generación. NO forma parte del sitio publicado.
+
+    Existe porque extraer las fotografías del PDF necesita un canvas, y un
+    canvas necesita un navegador. En lugar de mantener un segundo extractor
+    para Node —que se desincronizaría del bueno a la primera— se ejecuta el
+    pipeline REAL dentro de un Chromium sin ventana, gobernado por
+    `tools/generar-catalogo.mjs`.
+
+    Lo que se hornea aquí es exactamente lo que vería un visitante, con el
+    mismo código, así que no hay dos verdades posibles.
+  -->
+  <p id="estado">Preparando…</p>
+
+  <script type="module">
+    import { parsePdf } from '../scripts/data/pdfLoader.js';
+    import { enrichProduct } from '../scripts/data/productParser.js';
+    import { APP_CONFIG } from '../config/app.config.js';
+
+    const estado = document.getElementById('estado');
+
+    /**
+     * Codifica un blob como cadena base64, que es como cruza la frontera
+     * entre el navegador y el script de Node.
+     * @param {Blob} blob
+     * @returns {Promise<string>}
+     */
+    const toBase64 = (blob) => new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result).split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+
+    /**
+     * Lee el PDF y devuelve productos e imágenes. La invoca Playwright.
+     * @returns {Promise<object>}
+     */
+    window.hornear = async () => {
+      // Las rutas de la configuración son relativas a la raíz del sitio, y esta
+      // página vive en /tools/. Sin este ajuste se buscaría en /tools/data/.
+      const pdf = new URL(`../${APP_CONFIG.pdfUrl}`, location.href).href;
+
+      const parsed = await parsePdf(pdf, ({ phase, done, total }) => {
+        estado.textContent = `${phase} ${done}/${total}`;
+        window.__progreso = { phase, done, total };
+      });
+
+      const productos = parsed.products.map(enrichProduct);
+
+      // Las imágenes se reindexan por código: es la clave estable, mientras que
+      // el identificador de región depende del maquetado de la página.
+      const imagenes = {};
+      for (const producto of productos) {
+        const blob = producto.imageId ? parsed.images.get(producto.imageId) : null;
+        if (blob) imagenes[producto.code] = await toBase64(blob);
+      }
+
+      estado.textContent = 'Listo';
+      return { productos, imagenes, avisos: parsed.warnings, meta: parsed.meta };
+    };
+  </script>
+</body>
+</html>
